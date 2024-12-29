@@ -1,132 +1,201 @@
-"use server"
+"use server";
 
-import db from "@/db/db"
-import { z } from "zod"
-import fs from "fs/promises"
-import { notFound, redirect } from "next/navigation"
-import { revalidatePath } from "next/cache"
+import { db } from "@/lib/prisma";
+import { z } from "zod";
+import fs from "fs/promises";
+import { revalidatePath } from "next/cache";
 
-const fileSchema = z.instanceof(File, { message: "Required" })
-const imageSchema = fileSchema.refine(
-  file => file.size === 0 || file.type.startsWith("image/")
-)
+const imageSchema = z
+  .object({
+    name: z.string(),
+    size: z.number(),
+    type: z.string(),
+  })
+  .refine(
+    (file) => file.size === 0 || file.type.startsWith("image/"),
+    "Must be an image file"
+  );
 
 const addSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  priceInCents: z.coerce.number().int().min(1),
-  file: fileSchema.refine(file => file.size > 0, "Required"),
-  image: imageSchema.refine(file => file.size > 0, "Required"),
-})
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  price: z.string().transform((val) => parseInt(val)),
+  categoryId: z.string().min(1, "Category is required"),
+  image: imageSchema,
+});
 
 export async function addProduct(prevState: unknown, formData: FormData) {
-  const result = addSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (result.success === false) {
-    return result.error.formErrors.fieldErrors
+  const imageData = formData.get("image") as File | null;
+  const categoryId = formData.get("categoryId") as string;
+
+  if (!imageData) {
+    return {
+      image: "Image is required",
+    };
   }
 
-  const data = result.data
+  if (!categoryId) {
+    return {
+      categoryId: "Category is required",
+    };
+  }
 
-  await fs.mkdir("products", { recursive: true })
-  const filePath = `products/${crypto.randomUUID()}-${data.file.name}`
-  await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()))
-
-  await fs.mkdir("public/products", { recursive: true })
-  const imagePath = `/products/${crypto.randomUUID()}-${data.image.name}`
-  await fs.writeFile(
-    `public${imagePath}`,
-    Buffer.from(await data.image.arrayBuffer())
-  )
-
-  await db.product.create({
-    data: {
-      isAvailableForPurchase: false,
-      name: data.name,
-      description: data.description,
-      priceInCents: data.priceInCents,
-      filePath,
-      imagePath,
+  const validatedFields = addSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    categoryId: formData.get("categoryId"),
+    image: {
+      name: imageData.name,
+      size: imageData.size,
+      type: imageData.type,
     },
-  })
+  });
 
-  revalidatePath("/")
-  revalidatePath("/products")
+  if (!validatedFields.success) {
+    return validatedFields.error.flatten().fieldErrors;
+  }
 
-  redirect("/admin/products")
+  const { name, description, price, categoryId: validatedCategoryId } = validatedFields.data;
+
+  // Save image to public/products directory
+  const ext = imageData.name.split(".").pop();
+  const imageName = `${crypto.randomUUID()}-${imageData.name}`;
+  const imagePath = `/products/${imageName}`;
+  const imageBuffer = Buffer.from(await imageData.arrayBuffer());
+
+  try {
+    await fs.mkdir("public/products", { recursive: true });
+    await fs.writeFile(`public${imagePath}`, imageBuffer);
+
+    const product = await db.product.create({
+      data: {
+        name,
+        description,
+        price: parseInt(price),
+        imagePath,
+        categoryId: validatedCategoryId,
+        isAvailableForPurchase: true,
+      },
+    });
+
+    // Revalidate all necessary paths
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/"); // Revalidate homepage which shows products
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving product:", error);
+    return { error: "Failed to save product" };
+  }
 }
 
-const editSchema = addSchema.extend({
-  file: fileSchema.optional(),
-  image: imageSchema.optional(),
-})
+export async function updateProduct(id: string, prevState: unknown, formData: FormData) {
+  const imageData = formData.get("image") as File | null;
+  const categoryId = formData.get("categoryId") as string;
 
-export async function updateProduct(
-  id: string,
-  prevState: unknown,
-  formData: FormData
-) {
-  const result = editSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (result.success === false) {
-    return result.error.formErrors.fieldErrors
+  if (!categoryId) {
+    return {
+      categoryId: "Category is required",
+    };
   }
 
-  const data = result.data
-  const product = await db.product.findUnique({ where: { id } })
+  const validatedFields = addSchema
+    .omit({ image: true })
+    .extend({
+      image: imageSchema.optional(),
+    })
+    .safeParse({
+      name: formData.get("name"),
+      description: formData.get("description"),
+      price: formData.get("price"),
+      categoryId: formData.get("categoryId"),
+      image: imageData && {
+        name: imageData.name,
+        size: imageData.size,
+        type: imageData.type,
+      },
+    });
 
-  if (product == null) return notFound()
-
-  let filePath = product.filePath
-  if (data.file != null && data.file.size > 0) {
-    await fs.unlink(product.filePath)
-    filePath = `products/${crypto.randomUUID()}-${data.file.name}`
-    await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()))
+  if (!validatedFields.success) {
+    return validatedFields.error.flatten().fieldErrors;
   }
 
-  let imagePath = product.imagePath
-  if (data.image != null && data.image.size > 0) {
-    await fs.unlink(`public${product.imagePath}`)
-    imagePath = `/products/${crypto.randomUUID()}-${data.image.name}`
-    await fs.writeFile(
-      `public${imagePath}`,
-      Buffer.from(await data.image.arrayBuffer())
-    )
+  const { name, description, price, categoryId: validatedCategoryId } = validatedFields.data;
+
+  try {
+    let imagePath = undefined;
+
+    if (imageData) {
+      // Save new image
+      const ext = imageData.name.split(".").pop();
+      const imageName = `${crypto.randomUUID()}-${imageData.name}`;
+      imagePath = `/products/${imageName}`;
+      const imageBuffer = Buffer.from(await imageData.arrayBuffer());
+
+      await fs.mkdir("public/products", { recursive: true });
+      await fs.writeFile(`public${imagePath}`, imageBuffer);
+
+      // Delete old image
+      const oldProduct = await db.product.findUnique({ where: { id } });
+      if (oldProduct?.imagePath) {
+        await fs.unlink(`public${oldProduct.imagePath}`).catch(() => {});
+      }
+    }
+
+    await db.product.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        price: parseInt(price),
+        categoryId: validatedCategoryId,
+        ...(imagePath && { imagePath }),
+      },
+    });
+
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating product:", error);
+    return { error: "Failed to update product" };
   }
-
-  await db.product.update({
-    where: { id },
-    data: {
-      name: data.name,
-      description: data.description,
-      priceInCents: data.priceInCents,
-      filePath,
-      imagePath,
-    },
-  })
-
-  revalidatePath("/")
-  revalidatePath("/products")
-
-  redirect("/admin/products")
 }
 
 export async function toggleProductAvailability(
   id: string,
-  isAvailableForPurchase: boolean
+  isAvailableForPurchase: boolean,
 ) {
-  await db.product.update({ where: { id }, data: { isAvailableForPurchase } })
+  try {
+    await db.product.update({
+      where: { id },
+      data: { isAvailableForPurchase },
+    });
 
-  revalidatePath("/")
-  revalidatePath("/products")
+    // Revalidate all necessary paths
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/"); // Revalidate homepage which shows products
+  } catch (error) {
+    console.error("Error toggling product availability:", error);
+    throw error;
+  }
 }
 
 export async function deleteProduct(id: string) {
-  const product = await db.product.delete({ where: { id } })
+  try {
+    await db.product.delete({
+      where: { id },
+    });
 
-  if (product == null) return notFound()
-
-  await fs.unlink(product.filePath)
-  await fs.unlink(`public${product.imagePath}`)
-
-  revalidatePath("/")
-  revalidatePath("/products")
+    // Revalidate all necessary paths
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/"); // Revalidate homepage which shows products
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    throw error;
+  }
 }

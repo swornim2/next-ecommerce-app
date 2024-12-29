@@ -9,11 +9,11 @@ import {
 import { useRouter } from "next/navigation"
 
 export function ActiveToggleDropdownItem({
-  id,
-  isAvailableForPurchase,
+  productId,
+  isAvailable,
 }: {
-  id: string
-  isAvailableForPurchase: boolean
+  productId: string
+  isAvailable: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -22,32 +22,33 @@ export function ActiveToggleDropdownItem({
       disabled={isPending}
       onClick={() => {
         startTransition(async () => {
-          await toggleProductAvailability(id, !isAvailableForPurchase)
+          await toggleProductAvailability(productId, !isAvailable)
           router.refresh()
         })
       }}
     >
-      {isAvailableForPurchase ? "Deactivate" : "Activate"}
+      {isAvailable ? "Deactivate" : "Activate"}
     </DropdownMenuItem>
   )
 }
 
 export function DeleteDropdownItem({
-  id,
+  productId,
   disabled,
 }: {
-  id: string
+  productId: string
   disabled: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
   return (
     <DropdownMenuItem
-      variant="destructive"
+      className="text-destructive focus:text-destructive"
       disabled={disabled || isPending}
       onClick={() => {
         startTransition(async () => {
-          await deleteProduct(id)
+          await deleteProduct(productId)
           router.refresh()
         })
       }}

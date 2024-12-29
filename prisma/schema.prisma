@@ -10,18 +10,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  imagePath   String?   // Optional image path for category
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 model Product {
   id                     String                 @id @default(uuid())
   name                   String
-  priceInCents           Int
-  filePath               String
-  imagePath              String
-  description            String
-  isAvailableForPurchase Boolean                @default(true)
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  orders                 Order[]
-  downloadVerifications  DownloadVerification[]
+  price                  Int
+  imagePath             String
+  description           String
+  categoryId            String                  // Required field for category
+  category              Category               @relation(fields: [categoryId], references: [id])
+  isAvailableForPurchase Boolean               @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  orders                Order[]
+  downloadVerifications DownloadVerification[]
+  cartItems             CartItem[]
 }
 
 model User {
@@ -33,15 +46,17 @@ model User {
 }
 
 model Order {
-  id               String   @id @default(uuid())
-  pricePaidInCents Int
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(uuid())
+  price           Int
+  shippingDetails String?  // JSON string containing shipping information
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  status          String   @default("pending") // pending, processing, shipped, delivered, cancelled
 
-  userId    String
-  productId String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  userId          String
+  productId       String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
 }
 
 model DownloadVerification {
@@ -50,4 +65,22 @@ model DownloadVerification {
   createdAt DateTime @default(now())
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  quantity  Int
+  cartId    String
+  productId String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
