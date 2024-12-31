@@ -72,7 +72,7 @@ export function ProductCard({
   }
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[250px]">
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px]">
       <div className="relative w-full h-[300px]">
         <Image
           alt={name}

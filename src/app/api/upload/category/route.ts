@@ -3,11 +3,8 @@ import prisma from "@/db/db";
 import fs from "fs/promises";
 import path from "path";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const runtime = 'nodejs'; // or 'edge' depending on your runtime requirements
+
 
 export async function POST(request: Request) {
   try {

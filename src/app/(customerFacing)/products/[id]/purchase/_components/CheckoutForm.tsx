@@ -27,17 +27,17 @@ type CheckoutFormProps = {
     id: string
     imagePath: string
     name: string
-    priceInCents: number
+    price: number
     description: string
   }
-  clientSecret: string
+  clientSecret: string | null
 }
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY as string
 )
 
-export function CheckoutForm({ product, clientSecret }: CheckoutFormProps) {
+export default function CheckoutForm({ product, clientSecret }: CheckoutFormProps) {
   return (
     <div className="max-w-5xl w-full mx-auto space-y-8">
       <div className="flex gap-4 items-center">
@@ -51,7 +51,7 @@ export function CheckoutForm({ product, clientSecret }: CheckoutFormProps) {
         </div>
         <div>
           <div className="text-lg">
-            {formatCurrency(product.priceInCents / 100)}
+            {formatCurrency(product.price)}
           </div>
           <h1 className="text-2xl font-bold">{product.name}</h1>
           <div className="line-clamp-3 text-muted-foreground">
@@ -60,17 +60,17 @@ export function CheckoutForm({ product, clientSecret }: CheckoutFormProps) {
         </div>
       </div>
       <Elements options={{ clientSecret }} stripe={stripePromise}>
-        <Form priceInCents={product.priceInCents} productId={product.id} />
+        <Form price={product.price} productId={product.id} />
       </Elements>
     </div>
   )
 }
 
 function Form({
-  priceInCents,
+  price,
   productId,
 }: {
-  priceInCents: number
+  price: number
   productId: string
 }) {
   const stripe = useStripe()
@@ -140,7 +140,7 @@ function Form({
           >
             {isLoading
               ? "Purchasing..."
-              : `Purchase - ${formatCurrency(priceInCents / 100)}`}
+              : `Purchase - ${formatCurrency(price)}`}
           </Button>
         </CardFooter>
       </Card>

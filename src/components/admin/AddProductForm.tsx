@@ -45,7 +45,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   );
 
   const [priceInCents, setPriceInCents] = useState<string>(
-    product?.priceInCents?.toString() || ""
+    product?.price?.toString() || ""
   );
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     product?.categoryId || categories[0]?.id || ""

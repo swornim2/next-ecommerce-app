@@ -71,18 +71,20 @@ export async function addToCart(productId: string): Promise<void> {
 
     // Get or create cart
     let cartId = cookies().get("cartId")?.value;
-    let cart;
-
-    if (cartId) {
+    
+    if (!cartId) {
+      // If no cart exists, create one
+      cartId = await createCart();
+    } else {
       // Verify the cart exists
-      cart = await db.cart.findUnique({
+      const cart = await db.cart.findUnique({
         where: { id: cartId },
       });
-    }
-
-    // If no cart exists or the found cart is invalid, create a new one
-    if (!cart) {
-      cartId = await createCart();
+      
+      // If cart not found, create a new one
+      if (!cart) {
+        cartId = await createCart();
+      }
     }
 
     // Use a transaction to ensure consistency

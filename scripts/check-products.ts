@@ -1,20 +1,20 @@
-const { PrismaClient } = require('@prisma/client')
+import { PrismaClient, Product } from "@prisma/client";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  const products = await prisma.product.findMany()
-  console.log('All Products:')
-  products.forEach(product => {
-    console.log(`\nProduct: ${product.name}`)
-    console.log(`ID: ${product.id}`)
-    console.log(`Available: ${product.isAvailableForPurchase}`)
-    console.log(`Price: ${product.priceInCents / 100}`)
-    console.log(`Image: ${product.imagePath}`)
-    console.log(`File: ${product.filePath}`)
-  })
+  const products = await prisma.product.findMany();
+  console.log("All Products:");
+  products.forEach((product: Product) => {
+    console.log(`\nProduct: ${product.name}`);
+    console.log(`ID: ${product.id}`);
+    console.log(`Available: ${product.isAvailableForPurchase}`);
+    console.log(`Price: ${product.price / 100}`);
+    console.log(`Image: ${product.imagePath}`);
+    console.log(`Description: ${product.description}`);
+  });
 }
 
 main()
   .catch(console.error)
-  .finally(() => prisma.$disconnect())
+  .finally(() => prisma.$disconnect());

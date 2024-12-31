@@ -1,6 +1,6 @@
-"use server"
+"use server";
 
-import { db } from "@/lib/prisma"
+import { db } from "@/lib/prisma";
 
 export async function getCategories() {
   try {
@@ -8,9 +8,9 @@ export async function getCategories() {
       orderBy: {
         name: "asc",
       },
-    })
-    return { categories }
+    });
+    return { categories };
   } catch (error) {
-    return { error: "Failed to fetch categories" }
+    return { error: "Failed to fetch categories" };
   }
 }

@@ -1,11 +1,11 @@
-import { getOrders } from "@/app/_actions/orders"
-import { formatCurrency } from "@/lib/formatters"
-import { format } from "date-fns"
-import { Package } from "lucide-react"
-import Image from "next/image"
+import { getOrders } from "@/app/_actions/orders";
+import { formatCurrency } from "@/lib/formatters";
+import { format } from "date-fns";
+import { Package } from "lucide-react";
+import Image from "next/image";
 
 export default async function OrdersPage() {
-  const orders = await getOrders()
+  const orders = await getOrders();
 
   if (orders.length === 0) {
     return (
@@ -16,7 +16,7 @@ export default async function OrdersPage() {
           When you make a purchase, your orders will appear here.
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -38,7 +38,7 @@ export default async function OrdersPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
-                    {formatCurrency(order.pricePaidInCents)}
+                    {formatCurrency(order.price)}
                   </p>
                 </div>
               </div>
@@ -65,5 +65,5 @@ export default async function OrdersPage() {
         ))}
       </div>
     </div>
-  )
+  );
 }

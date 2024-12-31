@@ -14,8 +14,8 @@ export default async function PurchasePage({
   if (product == null) return notFound()
 
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: product.priceInCents,
-    currency: "USD",
+    amount: product.price * 100, // Convert dollars to cents for Stripe
+    currency: "NPR",
     metadata: { productId: product.id },
   })
 

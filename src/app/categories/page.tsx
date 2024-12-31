@@ -1,33 +1,33 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { useEffect, useState } from "react"
-import { getCategories } from "@/app/_actions/categories"
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { getCategories } from "@/app/_actions/categories";
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [categories, setCategories] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        setIsLoading(true)
-        const result = await getCategories()
+        setIsLoading(true);
+        const result = await getCategories();
         if (result.error) {
-          throw new Error(result.error)
+          throw new Error(result.error);
         }
-        setCategories(result.categories)
+        setCategories(result.categories);
       } catch (err) {
-        setError(err.message)
+        setError(err.message);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchCategories()
-  }, [])
+    fetchCategories();
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen mt-16">
@@ -38,7 +38,8 @@ export default function CategoriesPage() {
             All Categories
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Explore our wide range of categories and find exactly what you're looking for
+            Explore our wide range of categories and find exactly what you are
+            looking for
           </p>
         </div>
 
@@ -46,7 +47,10 @@ export default function CategoriesPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-[410px] bg-gray-200 rounded-xl animate-pulse" />
+              <div
+                key={i}
+                className="h-[410px] bg-gray-200 rounded-xl animate-pulse"
+              />
             ))}
           </div>
         ) : error ? (
@@ -77,7 +81,7 @@ export default function CategoriesPage() {
                   />
                   {/* Dark overlay with stronger gradient at bottom */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-70 group-hover/card:opacity-90 transition-all duration-300" />
-                  
+
                   {/* Content container */}
                   <div className="absolute inset-x-0 bottom-0 p-4">
                     {/* Content wrapper for animation */}
@@ -86,7 +90,7 @@ export default function CategoriesPage() {
                       <h3 className="text-white font-semibold text-xl drop-shadow-lg">
                         {category.name}
                       </h3>
-                      
+
                       {/* Description - slides up and fades in on hover */}
                       <div className="h-0 group-hover/card:h-auto overflow-hidden transition-all duration-300">
                         <p className="text-white/0 group-hover/card:text-white/90 transform translate-y-4 group-hover/card:translate-y-0 transition-all duration-300 text-sm mt-2 line-clamp-2 drop-shadow-lg">
@@ -102,5 +106,5 @@ export default function CategoriesPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
