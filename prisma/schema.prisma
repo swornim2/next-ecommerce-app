@@ -5,9 +5,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// datasource db {
+//  provider = "sqlite"
+//  url      = "file:../public/dev.db"
+// }
 datasource db {
-  provider = "sqlite"
-  url      = "file:../public/dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Category {
