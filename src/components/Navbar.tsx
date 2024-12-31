@@ -14,6 +14,23 @@ import { CartButton } from "./CartButton";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
+interface SearchResult {
+  id: string;
+  name: string;
+  description: string;
+  imagePath: string | null;
+  price: number;
+  category?: {
+    id: string;
+    name: string;
+    description: string | null;
+    imagePath: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    slug: string;
+  };
+}
+
 const navigation = [
   { name: "Categories", href: "/categories" },
   { name: "Products", href: "/products" },
@@ -25,7 +42,7 @@ export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
   const router = useRouter();

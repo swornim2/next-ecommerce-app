@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/formatters";
 import { useState } from "react";
-import { addProduct, updateProduct } from "../../_actions/products";
+
 import { useFormState, useFormStatus } from "react-dom";
 import { Product, Category } from "@prisma/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { addProduct, updateProduct } from "@/app/admin/_actions/products";
 
 type FormState = {
   name?: string[];
@@ -40,7 +41,7 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories }: ProductFormProps) {
   const [error, action] = useFormState<FormState, FormData>(
-    product == null ? addProduct : updateProduct.bind(null, product.id),
+    product == null ? addProduct : updateProduct.bind(null, product.id) as any,
     {}
   );
 

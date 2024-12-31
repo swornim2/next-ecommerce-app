@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/lib/prisma";
-import { z } from "zod";
 import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 const imageSchema = z
   .object({
@@ -56,7 +56,12 @@ export async function addProduct(prevState: unknown, formData: FormData) {
     return validatedFields.error.flatten().fieldErrors;
   }
 
-  const { name, description, price, categoryId: validatedCategoryId } = validatedFields.data;
+  const {
+    name,
+    description,
+    price,
+    categoryId: validatedCategoryId,
+  } = validatedFields.data;
 
   // Save image to public/products directory
   const ext = imageData.name.split(".").pop();
@@ -66,13 +71,13 @@ export async function addProduct(prevState: unknown, formData: FormData) {
 
   try {
     await fs.mkdir("public/products", { recursive: true });
-    await fs.writeFile(`public${imagePath}`, imageBuffer);
+    await fs.writeFile(`public${imagePath}`, imageBuffer as any);
 
     const product = await db.product.create({
       data: {
         name,
         description,
-        price: parseInt(price),
+        price,
         imagePath,
         categoryId: validatedCategoryId,
         isAvailableForPurchase: true,
@@ -90,7 +95,11 @@ export async function addProduct(prevState: unknown, formData: FormData) {
   }
 }
 
-export async function updateProduct(id: string, prevState: unknown, formData: FormData) {
+export async function updateProduct(
+  id: string,
+  prevState: unknown,
+  formData: FormData
+) {
   const imageData = formData.get("image") as File | null;
   const categoryId = formData.get("categoryId") as string;
 
@@ -121,7 +130,12 @@ export async function updateProduct(id: string, prevState: unknown, formData: Fo
     return validatedFields.error.flatten().fieldErrors;
   }
 
-  const { name, description, price, categoryId: validatedCategoryId } = validatedFields.data;
+  const {
+    name,
+    description,
+    price,
+    categoryId: validatedCategoryId,
+  } = validatedFields.data;
 
   try {
     let imagePath = undefined;
@@ -134,7 +148,7 @@ export async function updateProduct(id: string, prevState: unknown, formData: Fo
       const imageBuffer = Buffer.from(await imageData.arrayBuffer());
 
       await fs.mkdir("public/products", { recursive: true });
-      await fs.writeFile(`public${imagePath}`, imageBuffer);
+      await fs.writeFile(`public${imagePath}`, imageBuffer as any);
 
       // Delete old image
       const oldProduct = await db.product.findUnique({ where: { id } });
@@ -148,7 +162,7 @@ export async function updateProduct(id: string, prevState: unknown, formData: Fo
       data: {
         name,
         description,
-        price: parseInt(price),
+        price,
         categoryId: validatedCategoryId,
         ...(imagePath && { imagePath }),
       },
@@ -166,7 +180,7 @@ export async function updateProduct(id: string, prevState: unknown, formData: Fo
 
 export async function toggleProductAvailability(
   id: string,
-  isAvailableForPurchase: boolean,
+  isAvailableForPurchase: boolean
 ) {
   try {
     await db.product.update({

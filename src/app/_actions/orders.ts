@@ -1,9 +1,14 @@
 "use server";
 
 import db from "@/db/db";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-
+import { cookies } from "next/headers";
+export type orderStatusType =
+  | "pending"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
 export async function getOrders() {
   const orders = await db.order.findMany({
     include: {
@@ -117,12 +122,15 @@ export async function createOrder(orderData: {
   }
 }
 
-export async function updateOrderStatus(orderId: string, status: "pending" | "processing" | "shipped" | "delivered" | "cancelled") {
+export async function updateOrderStatus(
+  orderId: string,
+  status: orderStatusType
+) {
   try {
     await db.order.update({
       where: { id: orderId },
       data: {
-        status: status
+        status: status,
       },
     });
     revalidatePath("/admin/orders");

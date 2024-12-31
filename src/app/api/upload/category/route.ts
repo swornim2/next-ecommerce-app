@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
 import prisma from "@/db/db";
 import fs from "fs/promises";
+import { NextResponse } from "next/server";
 import path from "path";
 
-export const runtime = 'nodejs'; // or 'edge' depending on your runtime requirements
-
+export const runtime = "nodejs"; // or 'edge' depending on your runtime requirements
 
 export async function POST(request: Request) {
   try {
@@ -14,13 +13,6 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file");
     const categoryId = formData.get("categoryId");
-
-    // Log received data
-    console.log("Received data:", {
-      hasFile: !!file,
-      fileType: file?.type,
-      categoryId,
-    });
 
     if (!file || !(file instanceof Blob)) {
       console.error("No file or invalid file received");
@@ -68,7 +60,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes);
 
     try {
-      await fs.writeFile(filePath, buffer);
+      await fs.writeFile(filePath, buffer as any);
       console.log("File written successfully");
     } catch (writeError) {
       console.error("Error writing file:", writeError);

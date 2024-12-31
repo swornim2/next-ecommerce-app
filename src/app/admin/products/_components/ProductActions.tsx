@@ -1,46 +1,46 @@
-"use client"
+"use client";
 
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useTransition } from "react"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import {
   deleteProduct,
   toggleProductAvailability,
-} from "../../_actions/products"
-import { useRouter } from "next/navigation"
+} from "../../_actions/products";
 
 export function ActiveToggleDropdownItem({
   productId,
   isAvailable,
 }: {
-  productId: string
-  isAvailable: boolean
+  productId: string;
+  isAvailable: boolean;
 }) {
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   return (
     <DropdownMenuItem
       disabled={isPending}
       onClick={() => {
         startTransition(async () => {
-          await toggleProductAvailability(productId, !isAvailable)
-          router.refresh()
-        })
+          await toggleProductAvailability(productId, !isAvailable);
+          router.refresh();
+        });
       }}
     >
       {isAvailable ? "Deactivate" : "Activate"}
     </DropdownMenuItem>
-  )
+  );
 }
 
 export function DeleteDropdownItem({
   productId,
-  disabled,
+  disabled = false,
 }: {
-  productId: string
-  disabled: boolean
+  productId: string;
+  disabled?: boolean;
 }) {
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <DropdownMenuItem
@@ -48,12 +48,12 @@ export function DeleteDropdownItem({
       disabled={disabled || isPending}
       onClick={() => {
         startTransition(async () => {
-          await deleteProduct(productId)
-          router.refresh()
-        })
+          await deleteProduct(productId);
+          router.refresh();
+        });
       }}
     >
       Delete
     </DropdownMenuItem>
-  )
+  );
 }

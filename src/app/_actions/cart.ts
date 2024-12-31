@@ -1,8 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
 import db from "@/db/db";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 export type CartItem = {
   id: string;
@@ -59,7 +59,7 @@ export async function addToCart(productId: string): Promise<void> {
   try {
     // First, verify that the product exists and is available for purchase
     const product = await db.product.findUnique({
-      where: { 
+      where: {
         id: productId,
         isAvailableForPurchase: true,
       },
@@ -70,8 +70,8 @@ export async function addToCart(productId: string): Promise<void> {
     }
 
     // Get or create cart
-    let cartId = cookies().get("cartId")?.value;
-    
+    let cartId = cookies().get("cartId")?.value || "";
+
     if (!cartId) {
       // If no cart exists, create one
       cartId = await createCart();
@@ -80,7 +80,7 @@ export async function addToCart(productId: string): Promise<void> {
       const cart = await db.cart.findUnique({
         where: { id: cartId },
       });
-      
+
       // If cart not found, create a new one
       if (!cart) {
         cartId = await createCart();
@@ -116,10 +116,10 @@ export async function addToCart(productId: string): Promise<void> {
     });
 
     // Revalidate the cart page and any other pages that show cart information
-    revalidatePath('/cart');
-    revalidatePath('/');
+    revalidatePath("/cart");
+    revalidatePath("/");
   } catch (error) {
-    console.error('Error adding to cart:', error);
+    console.error("Error adding to cart:", error);
     throw error;
   }
 }
@@ -148,6 +148,6 @@ export async function updateCartItemQuantity(
     });
   }
 
-  revalidatePath('/cart');
-  revalidatePath('/');
+  revalidatePath("/cart");
+  revalidatePath("/");
 }

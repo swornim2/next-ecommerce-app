@@ -1,52 +1,57 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard"
-import { ChevronLeft } from "lucide-react"
-import Link from "next/link"
+import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard";
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-export default function CategoryPage({
-  params,
-}: {
-  params: { slug: string }
-}) {
-  const [products, setProducts] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imagePath: string;
+  isAvailableForPurchase: boolean;
+  categoryId: string;
+  category?: {
+    name: string;
+  };
+}
+
+export default function CategoryPage({ params }: { params: { slug: string } }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const categoryName = params.slug
     .split("-")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-        const response = await fetch('/api/products')
+        setIsLoading(true);
+        setError(null);
+        const response = await fetch(`/api/products?category=${encodeURIComponent(categoryName)}`);
         if (!response.ok) {
-          throw new Error('Failed to fetch products')
+          throw new Error("Failed to fetch products");
         }
-        const data = await response.json()
+        const data = await response.json();
         if (data.error) {
-          throw new Error(data.error)
+          throw new Error(data.error);
         }
-        // Filter products by category
-        const filteredProducts = data.filter(
-          product => product.category?.name.toLowerCase() === categoryName.toLowerCase()
-        )
-        setProducts(filteredProducts)
+        setProducts(data);
       } catch (error) {
-        console.error('Error fetching products:', error)
-        setError(error.message)
+        console.error("Error fetching products:", error);
+        setError(error instanceof Error ? error.message : "An unknown error occurred");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchProducts()
-  }, [categoryName])
+    fetchProducts();
+  }, [categoryName]);
 
   return (
     <div className="container mx-auto px-4 py-8 pt-24">
@@ -58,7 +63,9 @@ export default function CategoryPage({
           <ChevronLeft className="h-4 w-4 mr-1" />
           Back to Categories
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 mt-4">{categoryName}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mt-4">
+          {categoryName}
+        </h1>
         <p className="mt-2 text-gray-600">
           Browse our selection of {categoryName.toLowerCase()}
         </p>
@@ -67,9 +74,11 @@ export default function CategoryPage({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {isLoading ? (
           <>
-            {Array(8).fill(0).map((_, i) => (
-              <ProductCardSkeleton key={i} />
-            ))}
+            {Array(8)
+              .fill(0)
+              .map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
           </>
         ) : error ? (
           <div className="col-span-full text-center py-8">
@@ -108,5 +117,5 @@ export default function CategoryPage({
         )}
       </div>
     </div>
-  )
+  );
 }

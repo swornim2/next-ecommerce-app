@@ -107,7 +107,11 @@ export function AddCategoryForm() {
       setImagePreview(null)
     } catch (error) {
       console.error("Error creating category:", error)
-      toast.error(error.message || "Failed to create category")
+      if (error instanceof Error) {
+        toast.error(error.message)
+      } else {
+        toast.error("Failed to create category")
+      }
     } finally {
       setIsLoading(false)
     }

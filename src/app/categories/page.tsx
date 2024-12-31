@@ -5,22 +5,34 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCategories } from "@/app/_actions/categories";
 
+interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  imagePath: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  slug: string;
+}
+
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         const result = await getCategories();
         if (result.error) {
           throw new Error(result.error);
         }
-        setCategories(result.categories);
+        setCategories(result.categories || []);
       } catch (err) {
-        setError(err.message);
+        console.error("Error fetching categories:", err);
+        setError(err instanceof Error ? err.message : "An unknown error occurred");
       } finally {
         setIsLoading(false);
       }

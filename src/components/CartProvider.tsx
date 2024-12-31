@@ -10,7 +10,7 @@ export async function CartProvider({
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
-    <CartContextProvider initialCount={itemCount}>
+    <CartContextProvider initialItems={cart}>
       {children}
     </CartContextProvider>
   )

@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,14 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
-import { addProduct, updateProduct } from "../../_actions/products";
-import { useFormState, useFormStatus } from "react-dom";
-import { Product, Category } from "@prisma/client";
+import { Textarea } from "@/components/ui/textarea";
+import { formatCurrency } from "@/lib/formatters";
+import { Category, Product } from "@prisma/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/formatters";
+import { addProduct, updateProduct } from "../../_actions/products";
 
 type FormState = {
   name?: string[];
@@ -40,13 +40,13 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories }: ProductFormProps) {
   const [error, action] = useFormState<FormState, FormData>(
-    product == null ? addProduct : updateProduct.bind(null, product.id),
+    product == null
+      ? addProduct
+      : (updateProduct.bind(null, product.id) as any),
     {}
   );
 
-  const [price, setPrice] = useState<string>(
-    product?.price?.toString() || ""
-  );
+  const [price, setPrice] = useState<string>(product?.price?.toString() || "");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     product?.categoryId || categories[0]?.id || ""
   );
@@ -59,7 +59,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    formData.set('categoryId', selectedCategoryId);
+    formData.set("categoryId", selectedCategoryId);
     action(formData);
   };
 
@@ -87,7 +87,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           required
         >
           <SelectTrigger className="w-full h-10 px-3 py-2 text-sm bg-white border rounded-md border-input ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-            <SelectValue placeholder="Choose a category" className="text-gray-500" />
+            <SelectValue
+              placeholder="Choose a category"
+              className="text-gray-500"
+            />
           </SelectTrigger>
           <SelectContent className="max-h-[300px] overflow-y-auto bg-white p-1">
             <div className="py-2 px-3 text-xs font-medium text-gray-500 bg-gray-50">
@@ -140,9 +143,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         <p className="text-sm text-muted-foreground">
           Preview: {formatCurrency(Number(price) || 0)}
         </p>
-        {error?.price && (
-          <div className="text-destructive">{error.price}</div>
-        )}
+        {error?.price && <div className="text-destructive">{error.price}</div>}
       </div>
 
       <div className="space-y-2">
@@ -177,7 +178,13 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   );
 }
 
-function SubmitButton({ error, product }: { error: FormState; product?: Product | null }) {
+function SubmitButton({
+  error,
+  product,
+}: {
+  error: FormState;
+  product?: Product | null;
+}) {
   const { pending } = useFormStatus();
   const router = useRouter();
 
