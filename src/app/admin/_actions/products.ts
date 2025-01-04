@@ -1,20 +1,22 @@
 "use server";
 
 import { db } from "@/lib/prisma";
-import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { v2 as cloudinary } from 'cloudinary';
 
-const imageSchema = z
-  .object({
-    name: z.string(),
-    size: z.number(),
-    type: z.string(),
-  })
-  .refine(
-    (file) => file.size === 0 || file.type.startsWith("image/"),
-    "Must be an image file"
-  );
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const imageSchema = z.object({
+  name: z.string(),
+  size: z.number(),
+  type: z.string().refine(val => val.startsWith('image/'), 'Must be an image file'),
+}).refine(file => file.size <= 5 * 1024 * 1024, 'Image must be less than 5MB');
 
 const addSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -24,74 +26,85 @@ const addSchema = z.object({
   image: imageSchema,
 });
 
-export async function addProduct(prevState: unknown, formData: FormData) {
-  const imageData = formData.get("image") as File | null;
-  const categoryId = formData.get("categoryId") as string;
-
-  if (!imageData) {
-    return {
-      image: "Image is required",
-    };
-  }
-
-  if (!categoryId) {
-    return {
-      categoryId: "Category is required",
-    };
-  }
-
-  const validatedFields = addSchema.safeParse({
-    name: formData.get("name"),
-    description: formData.get("description"),
-    price: formData.get("price"),
-    categoryId: formData.get("categoryId"),
-    image: {
-      name: imageData.name,
-      size: imageData.size,
-      type: imageData.type,
-    },
-  });
-
-  if (!validatedFields.success) {
-    return validatedFields.error.flatten().fieldErrors;
-  }
-
-  const {
-    name,
-    description,
-    price,
-    categoryId: validatedCategoryId,
-  } = validatedFields.data;
-
-  // Save image to public/products directory
-  const ext = imageData.name.split(".").pop();
-  const imageName = `${crypto.randomUUID()}-${imageData.name}`;
-  const imagePath = `/products/${imageName}`;
+async function uploadToCloudinary(imageData: File) {
   const imageBuffer = Buffer.from(await imageData.arrayBuffer());
+  
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "products",
+        resource_type: "auto",
+        transformation: [
+          { quality: "auto:best" },
+          { fetch_format: "auto" }
+        ]
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    
+    const bufferStream = require('stream').Readable.from(imageBuffer);
+    bufferStream.pipe(uploadStream);
+  });
+}
 
+export async function addProduct(prevState: unknown, formData: FormData) {
   try {
-    await fs.mkdir("public/products", { recursive: true });
-    await fs.writeFile(`public${imagePath}`, imageBuffer as any);
+    const imageData = formData.get("image") as File | null;
+    const categoryId = formData.get("categoryId") as string;
 
+    if (!imageData) {
+      return { image: ["Image is required"] };
+    }
+
+    if (!categoryId) {
+      return { categoryId: ["Category is required"] };
+    }
+
+    const validatedFields = addSchema.safeParse({
+      name: formData.get("name"),
+      description: formData.get("description"),
+      price: formData.get("price"),
+      categoryId: formData.get("categoryId"),
+      image: {
+        name: imageData.name,
+        size: imageData.size,
+        type: imageData.type,
+      },
+    });
+
+    if (!validatedFields.success) {
+      return validatedFields.error.flatten().fieldErrors;
+    }
+
+    const {
+      name,
+      description,
+      price,
+      categoryId: validatedCategoryId,
+    } = validatedFields.data;
+
+    // Upload image to Cloudinary
+    const uploadResult = await uploadToCloudinary(imageData) as any;
+
+    // Create product with Cloudinary URL
     const product = await db.product.create({
       data: {
         name,
         description,
         price,
-        imagePath,
         categoryId: validatedCategoryId,
-        isAvailableForPurchase: true,
+        imagePath: uploadResult.secure_url,
       },
     });
 
-    // Revalidate all necessary paths
     revalidatePath("/admin/products");
-    revalidatePath("/products");
-    revalidatePath("/"); // Revalidate homepage which shows products
     return { success: true };
   } catch (error) {
-    console.error("Error saving product:", error);
-    return { error: "Failed to save product" };
+    console.error("Error in addProduct:", error);
+    return { error: "Failed to create product. Please try again." };
   }
 }
 
@@ -100,81 +113,68 @@ export async function updateProduct(
   prevState: unknown,
   formData: FormData
 ) {
-  const imageData = formData.get("image") as File | null;
-  const categoryId = formData.get("categoryId") as string;
+  try {
+    const imageData = formData.get("image") as File | null;
+    const categoryId = formData.get("categoryId") as string;
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const price = formData.get("price") as string;
 
-  if (!categoryId) {
-    return {
-      categoryId: "Category is required",
+    if (!categoryId) {
+      return { categoryId: ["Category is required"] };
+    }
+
+    const updateData: any = {
+      name,
+      description,
+      price: parseInt(price),
+      categoryId,
     };
-  }
 
-  const validatedFields = addSchema
-    .omit({ image: true })
-    .extend({
-      image: imageSchema.optional(),
-    })
-    .safeParse({
-      name: formData.get("name"),
-      description: formData.get("description"),
-      price: formData.get("price"),
-      categoryId: formData.get("categoryId"),
-      image: imageData && {
+    // If new image is provided, upload it
+    if (imageData && imageData.size > 0) {
+      const validatedImage = imageSchema.safeParse({
         name: imageData.name,
         size: imageData.size,
         type: imageData.type,
-      },
-    });
+      });
 
-  if (!validatedFields.success) {
-    return validatedFields.error.flatten().fieldErrors;
-  }
+      if (!validatedImage.success) {
+        return validatedImage.error.flatten().fieldErrors;
+      }
 
-  const {
-    name,
-    description,
-    price,
-    categoryId: validatedCategoryId,
-  } = validatedFields.data;
+      const uploadResult = await uploadToCloudinary(imageData) as any;
+      updateData.imagePath = uploadResult.secure_url;
 
-  try {
-    let imagePath = undefined;
-
-    if (imageData) {
-      // Save new image
-      const ext = imageData.name.split(".").pop();
-      const imageName = `${crypto.randomUUID()}-${imageData.name}`;
-      imagePath = `/products/${imageName}`;
-      const imageBuffer = Buffer.from(await imageData.arrayBuffer());
-
-      await fs.mkdir("public/products", { recursive: true });
-      await fs.writeFile(`public${imagePath}`, imageBuffer as any);
-
-      // Delete old image
-      const oldProduct = await db.product.findUnique({ where: { id } });
+      // Optionally: Delete old image from Cloudinary
+      const oldProduct = await db.product.findUnique({
+        where: { id },
+        select: { imagePath: true },
+      });
+      
       if (oldProduct?.imagePath) {
-        await fs.unlink(`public${oldProduct.imagePath}`).catch(() => {});
+        try {
+          const publicId = oldProduct.imagePath.split('/').pop()?.split('.')[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`products/${publicId}`);
+          }
+        } catch (error) {
+          console.error("Error deleting old image:", error);
+        }
       }
     }
 
+    // Update product
     await db.product.update({
       where: { id },
-      data: {
-        name,
-        description,
-        price,
-        categoryId: validatedCategoryId,
-        ...(imagePath && { imagePath }),
-      },
+      data: updateData,
     });
 
     revalidatePath("/admin/products");
-    revalidatePath("/products");
-    revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error("Error updating product:", error);
-    return { error: "Failed to update product" };
+    console.error("Error in updateProduct:", error);
+    return { error: "Failed to update product. Please try again." };
   }
 }
 
@@ -187,29 +187,41 @@ export async function toggleProductAvailability(
       where: { id },
       data: { isAvailableForPurchase },
     });
-
-    // Revalidate all necessary paths
     revalidatePath("/admin/products");
-    revalidatePath("/products");
-    revalidatePath("/"); // Revalidate homepage which shows products
+    return { success: true };
   } catch (error) {
-    console.error("Error toggling product availability:", error);
-    throw error;
+    console.error("Error toggling availability:", error);
+    return { error: "Failed to update product availability" };
   }
 }
 
 export async function deleteProduct(id: string) {
   try {
+    const product = await db.product.findUnique({
+      where: { id },
+      select: { imagePath: true },
+    });
+
+    // Delete image from Cloudinary if it exists
+    if (product?.imagePath) {
+      try {
+        const publicId = product.imagePath.split('/').pop()?.split('.')[0];
+        if (publicId) {
+          await cloudinary.uploader.destroy(`products/${publicId}`);
+        }
+      } catch (error) {
+        console.error("Error deleting image from Cloudinary:", error);
+      }
+    }
+
     await db.product.delete({
       where: { id },
     });
 
-    // Revalidate all necessary paths
     revalidatePath("/admin/products");
-    revalidatePath("/products");
-    revalidatePath("/"); // Revalidate homepage which shows products
+    return { success: true };
   } catch (error) {
     console.error("Error deleting product:", error);
-    throw error;
+    return { error: "Failed to delete product" };
   }
 }

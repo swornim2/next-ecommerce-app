@@ -1,11 +1,10 @@
-"use client"
-
 import { formatCurrency } from "@/lib/formatters"
 import { useCartActions } from "@/hooks/useCart"
 import { useCart } from "@/lib/CartContext"
 import { useState } from "react"
 import { toast } from "sonner"
 import Image from "next/image"
+import { ImageOff } from "lucide-react"
 
 type ProductCardProps = {
   id: string
@@ -31,6 +30,7 @@ export function ProductCard({
   const { addToCart, isLoading } = useCartActions()
   const { items, updateLocalCart } = useCart()
   const [error, setError] = useState<string | null>(null)
+  const [imageError, setImageError] = useState(false)
 
   const handleAddToCart = async () => {
     try {
@@ -73,16 +73,23 @@ export function ProductCard({
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px]">
-      <div className="relative w-full h-[300px]">
-        <Image
-          alt={name}
-          src={imagePath}
-          fill
-          className="object-cover transition-transform duration-300 hover:scale-105"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority
-          quality={85}
-        />
+      <div className="relative w-full h-[300px] bg-gray-100">
+        {!imageError ? (
+          <Image
+            alt={name}
+            src={imagePath}
+            fill
+            className="object-cover transition-transform duration-300 hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority
+            quality={85}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <ImageOff className="w-12 h-12 text-gray-400" />
+          </div>
+        )}
         {categoryName && (
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-[#FF0000] text-xs font-medium px-2 py-1 rounded-full">
             {categoryName}
@@ -97,28 +104,18 @@ export function ProductCard({
           {description}
         </p>
       </div>
-      <div className="p-4 pt-0">
-        <p className="text-2xl font-bold">
-          NPR&nbsp;{price.toLocaleString()}
+      <div className="p-4 pt-0 mt-auto">
+        <p className="text-2xl font-bold mb-4">
+          {formatCurrency(price)}
         </p>
-      </div>
-      <div className="items-center p-4 pt-0 flex gap-2 mt-auto">
-        {isAvailableForPurchase ? (
-          <button
-            onClick={handleAddToCart}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-black/90 h-10 px-4 py-2 w-full"
-          >
-            Add to Cart
-          </button>
-        ) : (
-          <button
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
-            disabled
-          >
-            Out of Stock
-          </button>
-        )}
+        <button
+          onClick={handleAddToCart}
+          disabled={!isAvailableForPurchase || isLoading}
+          className="w-full bg-[#8B7355] hover:bg-[#8B7355]/90 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isLoading ? "Adding..." : isAvailableForPurchase ? "Add to Cart" : "Out of Stock"}
+        </button>
+        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
       </div>
     </div>
   )
@@ -126,17 +123,15 @@ export function ProductCard({
 
 export function ProductCardSkeleton() {
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[250px]">
-      <div className="relative w-full h-[300px] bg-gray-200 animate-pulse" />
-      <div className="flex flex-col space-y-1.5 p-4">
-        <div className="h-6 w-3/4 bg-gray-200 animate-pulse rounded" />
-        <div className="h-4 w-full bg-gray-200 animate-pulse rounded mt-2" />
-      </div>
-      <div className="p-4 pt-0">
-        <div className="h-8 w-1/3 bg-gray-200 animate-pulse rounded" />
-      </div>
-      <div className="items-center p-4 pt-0 flex gap-2 mt-auto">
-        <div className="h-10 w-full bg-gray-200 animate-pulse rounded" />
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden h-[500px] w-[400px]">
+      <div className="w-full h-[300px] bg-gray-200 animate-pulse" />
+      <div className="p-4 space-y-4">
+        <div className="h-6 bg-gray-200 rounded animate-pulse" />
+        <div className="space-y-2">
+          <div className="h-4 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+        </div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse" />
       </div>
     </div>
   )

@@ -16,8 +16,9 @@ import { Category, Product } from "@prisma/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 import { toast } from "sonner";
+import { Upload, X } from "lucide-react";
 import { addProduct, updateProduct } from "../../_actions/products";
 
 type FormState = {
@@ -50,17 +51,68 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     product?.categoryId || categories[0]?.id || ""
   );
+  const [imagePreview, setImagePreview] = useState<string | null>(product?.imagePath || null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPrice(value);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("Image size should be less than 5MB");
+        return;
+      }
+      
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please upload an image file");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    const input = document.getElementById('image') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    formData.set("categoryId", selectedCategoryId);
-    action(formData);
+    setIsLoading(true);
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.set("categoryId", selectedCategoryId);
+      const result = await action(formData);
+      
+      if (result?.success) {
+        toast.success(product ? "Product updated successfully!" : "Product created successfully!");
+        if (!product) {
+          // Clear form for new product
+          e.currentTarget.reset();
+          setPrice("");
+          clearImage();
+        }
+      } else if (result?.error) {
+        toast.error(result.error);
+      }
+    } catch (err) {
+      console.error("Error submitting form:", err);
+      toast.error("Failed to save product");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -108,23 +160,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           </SelectContent>
         </Select>
         {error?.categoryId && (
-          <div className="text-sm text-red-500 mt-1.5">
-            <span className="flex items-center gap-1">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {error.categoryId}
-            </span>
-          </div>
+          <div className="text-destructive">{error.categoryId}</div>
         )}
       </div>
 
@@ -152,7 +188,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           id="description"
           name="description"
           required
-          defaultValue={product?.description}
+          defaultValue={product?.description || ""}
         />
         {error?.description && (
           <div className="text-destructive">{error.description}</div>
@@ -160,53 +196,54 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="image">Image</Label>
-        <Input 
-          type="file" 
-          id="image" 
-          name="image" 
-          required={product == null}
-          accept="image/*"
-        />
-        {product?.imagePath && (
-          <div className="mt-2">
-            <Image
-              src={product.imagePath}
-              height={200}
-              width={200}
-              alt={product.name}
-              className="rounded-lg object-cover"
-              priority
+        <Label htmlFor="image">Product Image</Label>
+        <div className="mt-2 space-y-4">
+          <div className="flex items-center gap-4">
+            <Input
+              id="image"
+              type="file"
+              name="image"
+              onChange={handleImageChange}
+              accept="image/*"
+              required={!product}
+              className="flex-1"
             />
+            {imagePreview && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={clearImage}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-        )}
+
+          {imagePreview && (
+            <div className="relative aspect-video w-full max-w-sm overflow-hidden rounded-lg border">
+              <Image
+                src={imagePreview}
+                alt="Product preview"
+                fill
+                className="object-cover"
+              />
+            </div>
+          )}
+        </div>
         {error?.image && <div className="text-destructive">{error.image}</div>}
       </div>
 
-      <SubmitButton error={error} product={product} />
+      <Button type="submit" disabled={isLoading} className="w-full">
+        {isLoading ? (
+          <>
+            <Upload className="mr-2 h-4 w-4 animate-spin" />
+            {product ? "Updating..." : "Creating..."}
+          </>
+        ) : (
+          product ? "Update Product" : "Create Product"
+        )}
+      </Button>
     </form>
-  );
-}
-
-function SubmitButton({
-  error,
-  product,
-}: {
-  error: FormState;
-  product?: Product | null;
-}) {
-  const { pending } = useFormStatus();
-  const router = useRouter();
-
-  if (error?.success) {
-    toast.success("Product saved successfully!");
-    router.push("/admin/products");
-    router.refresh();
-  }
-
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Saving..." : product == null ? "Add Product" : "Save Changes"}
-    </Button>
   );
 }
