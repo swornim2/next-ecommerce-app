@@ -5,12 +5,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// datasource db {
-//  provider = "sqlite"
-//  url      = "file:../public/dev.db"
-// }
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -39,6 +35,7 @@ model Product {
   orders                Order[]
   downloadVerifications DownloadVerification[]
   cartItems             CartItem[]
+  
 }
 
 model User {
