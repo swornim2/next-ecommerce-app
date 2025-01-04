@@ -19,16 +19,9 @@ import { useState } from "react";
 import { useFormState } from "react-dom";
 import { toast } from "sonner";
 import { Upload, X } from "lucide-react";
-import { addProduct, updateProduct } from "../../_actions/products";
+import { ActionResult, addProduct, updateProduct } from "../../_actions/products";
 
-type FormState = {
-  name?: string[];
-  description?: string[];
-  price?: string[];
-  categoryId?: string[];
-  image?: string[];
-  success?: boolean;
-};
+type FormState = ActionResult;
 
 type ProductWithCategory = Product & {
   category: Category;
@@ -40,18 +33,21 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ product, categories }: ProductFormProps) {
-  const [error, action] = useFormState<FormState, FormData>(
+  const router = useRouter();
+  const [error, formAction] = useFormState<FormState, FormData>(
     product == null
       ? addProduct
       : (updateProduct.bind(null, product.id) as any),
-    {}
+    null
   );
 
   const [price, setPrice] = useState<string>(product?.price?.toString() || "");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     product?.categoryId || categories[0]?.id || ""
   );
-  const [imagePreview, setImagePreview] = useState<string | null>(product?.imagePath || null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    product?.imagePath || null
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,11 +58,12 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
         toast.error("Image size should be less than 5MB");
         return;
       }
-      
+
       if (!file.type.startsWith("image/")) {
         toast.error("Please upload an image file");
         return;
@@ -82,9 +79,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 
   const clearImage = () => {
     setImagePreview(null);
-    const input = document.getElementById('image') as HTMLInputElement;
+    const input = document.getElementById("image") as HTMLInputElement;
     if (input) {
-      input.value = '';
+      input.value = "";
     }
   };
 
@@ -94,18 +91,34 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     try {
       const formData = new FormData(e.currentTarget);
       formData.set("categoryId", selectedCategoryId);
-      const result = await action(formData);
-      
+      const result: ActionResult = product
+        ? await updateProduct(product.id, null, formData)
+        : await addProduct(null, formData);
       if (result?.success) {
-        toast.success(product ? "Product updated successfully!" : "Product created successfully!");
+        toast.success(
+          product
+            ? "Product updated successfully!"
+            : "Product created successfully!"
+        );
         if (!product) {
           // Clear form for new product
           e.currentTarget.reset();
           setPrice("");
           clearImage();
         }
+        router.push("/admin/products");
+        router.refresh();
       } else if (result?.error) {
         toast.error(result.error);
+      } else if (result?.fieldErrors) {
+        // Handle field-specific errors
+        Object.entries(result.fieldErrors as Record<string, string[]>).forEach(
+          ([field, errors]) => {
+            if (errors?.length) {
+              toast.error(`${field}: ${errors[0]}`);
+            }
+          }
+        );
       }
     } catch (err) {
       console.error("Error submitting form:", err);
@@ -126,7 +139,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           required
           defaultValue={product?.name || ""}
         />
-        {error?.name && <div className="text-destructive">{error.name}</div>}
+        {error?.fieldErrors?.name && (
+          <div className="text-destructive">{error.fieldErrors.name[0]}</div>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -159,8 +174,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             ))}
           </SelectContent>
         </Select>
-        {error?.categoryId && (
-          <div className="text-destructive">{error.categoryId}</div>
+        {error?.fieldErrors?.categoryId && (
+          <div className="text-destructive">
+            {error.fieldErrors.categoryId[0]}
+          </div>
         )}
       </div>
 
@@ -179,7 +196,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         <p className="text-sm text-muted-foreground">
           Preview: {formatCurrency(Number(price) || 0)}
         </p>
-        {error?.price && <div className="text-destructive">{error.price}</div>}
+        {error?.fieldErrors?.price && (
+          <div className="text-destructive">{error.fieldErrors.price[0]}</div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -190,8 +209,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           required
           defaultValue={product?.description || ""}
         />
-        {error?.description && (
-          <div className="text-destructive">{error.description}</div>
+        {error?.fieldErrors?.description && (
+          <div className="text-destructive">
+            {error.fieldErrors.description[0]}
+          </div>
         )}
       </div>
 
@@ -231,7 +252,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             </div>
           )}
         </div>
-        {error?.image && <div className="text-destructive">{error.image}</div>}
+        {error?.fieldErrors?.image && (
+          <div className="text-destructive">{error.fieldErrors.image[0]}</div>
+        )}
       </div>
 
       <Button type="submit" disabled={isLoading} className="w-full">
@@ -240,8 +263,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             <Upload className="mr-2 h-4 w-4 animate-spin" />
             {product ? "Updating..." : "Creating..."}
           </>
+        ) : product ? (
+          "Update Product"
         ) : (
-          product ? "Update Product" : "Create Product"
+          "Create Product"
         )}
       </Button>
     </form>

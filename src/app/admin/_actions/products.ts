@@ -3,20 +3,33 @@
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from "cloudinary";
+
+export type ActionResult = {
+  success: boolean;
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+} | null;
 
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const imageSchema = z.object({
-  name: z.string(),
-  size: z.number(),
-  type: z.string().refine(val => val.startsWith('image/'), 'Must be an image file'),
-}).refine(file => file.size <= 5 * 1024 * 1024, 'Image must be less than 5MB');
+const imageSchema = z
+  .object({
+    name: z.string(),
+    size: z.number(),
+    type: z
+      .string()
+      .refine((val) => val.startsWith("image/"), "Must be an image file"),
+  })
+  .refine(
+    (file) => file.size <= 5 * 1024 * 1024,
+    "Image must be less than 5MB"
+  );
 
 const addSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -28,39 +41,42 @@ const addSchema = z.object({
 
 async function uploadToCloudinary(imageData: File) {
   const imageBuffer = Buffer.from(await imageData.arrayBuffer());
-  
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: "products",
         resource_type: "auto",
-        transformation: [
-          { quality: "auto:best" },
-          { fetch_format: "auto" }
-        ]
+        transformation: [{ quality: "auto:best" }, { fetch_format: "auto" }],
       },
       (error, result) => {
         if (error) reject(error);
         else resolve(result);
       }
     );
-    
-    const bufferStream = require('stream').Readable.from(imageBuffer);
+
+    const bufferStream = require("stream").Readable.from(imageBuffer);
     bufferStream.pipe(uploadStream);
   });
 }
 
-export async function addProduct(prevState: unknown, formData: FormData) {
+export async function addProduct(prevState: unknown, formData: FormData): Promise<ActionResult> {
   try {
     const imageData = formData.get("image") as File | null;
     const categoryId = formData.get("categoryId") as string;
 
     if (!imageData) {
-      return { image: ["Image is required"] };
+      return {
+        success: false,
+        fieldErrors: { image: ["Image is required"] }
+      };
     }
 
     if (!categoryId) {
-      return { categoryId: ["Category is required"] };
+      return {
+        success: false,
+        fieldErrors: { categoryId: ["Category is required"] }
+      };
     }
 
     const validatedFields = addSchema.safeParse({
@@ -76,7 +92,10 @@ export async function addProduct(prevState: unknown, formData: FormData) {
     });
 
     if (!validatedFields.success) {
-      return validatedFields.error.flatten().fieldErrors;
+      return {
+        success: false,
+        fieldErrors: validatedFields.error.flatten().fieldErrors
+      };
     }
 
     const {
@@ -87,7 +106,7 @@ export async function addProduct(prevState: unknown, formData: FormData) {
     } = validatedFields.data;
 
     // Upload image to Cloudinary
-    const uploadResult = await uploadToCloudinary(imageData) as any;
+    const uploadResult = (await uploadToCloudinary(imageData)) as any;
 
     // Create product with Cloudinary URL
     const product = await db.product.create({
@@ -104,7 +123,10 @@ export async function addProduct(prevState: unknown, formData: FormData) {
     return { success: true };
   } catch (error) {
     console.error("Error in addProduct:", error);
-    return { error: "Failed to create product. Please try again." };
+    return {
+      success: false,
+      error: "Failed to create product. Please try again."
+    };
   }
 }
 
@@ -112,7 +134,7 @@ export async function updateProduct(
   id: string,
   prevState: unknown,
   formData: FormData
-) {
+): Promise<ActionResult> {
   try {
     const imageData = formData.get("image") as File | null;
     const categoryId = formData.get("categoryId") as string;
@@ -121,7 +143,10 @@ export async function updateProduct(
     const price = formData.get("price") as string;
 
     if (!categoryId) {
-      return { categoryId: ["Category is required"] };
+      return {
+        success: false,
+        fieldErrors: { categoryId: ["Category is required"] }
+      };
     }
 
     const updateData: any = {
@@ -140,10 +165,13 @@ export async function updateProduct(
       });
 
       if (!validatedImage.success) {
-        return validatedImage.error.flatten().fieldErrors;
+        return {
+          success: false,
+          fieldErrors: validatedImage.error.flatten().fieldErrors
+        };
       }
 
-      const uploadResult = await uploadToCloudinary(imageData) as any;
+      const uploadResult = (await uploadToCloudinary(imageData)) as any;
       updateData.imagePath = uploadResult.secure_url;
 
       // Optionally: Delete old image from Cloudinary
@@ -151,10 +179,10 @@ export async function updateProduct(
         where: { id },
         select: { imagePath: true },
       });
-      
+
       if (oldProduct?.imagePath) {
         try {
-          const publicId = oldProduct.imagePath.split('/').pop()?.split('.')[0];
+          const publicId = oldProduct.imagePath.split("/").pop()?.split(".")[0];
           if (publicId) {
             await cloudinary.uploader.destroy(`products/${publicId}`);
           }
@@ -174,14 +202,17 @@ export async function updateProduct(
     return { success: true };
   } catch (error) {
     console.error("Error in updateProduct:", error);
-    return { error: "Failed to update product. Please try again." };
+    return {
+      success: false,
+      error: "Failed to update product. Please try again."
+    };
   }
 }
 
 export async function toggleProductAvailability(
   id: string,
   isAvailableForPurchase: boolean
-) {
+): Promise<ActionResult> {
   try {
     await db.product.update({
       where: { id },
@@ -191,11 +222,14 @@ export async function toggleProductAvailability(
     return { success: true };
   } catch (error) {
     console.error("Error toggling availability:", error);
-    return { error: "Failed to update product availability" };
+    return {
+      success: false,
+      error: "Failed to toggle product availability. Please try again."
+    };
   }
 }
 
-export async function deleteProduct(id: string) {
+export async function deleteProduct(id: string): Promise<ActionResult> {
   try {
     const product = await db.product.findUnique({
       where: { id },
@@ -205,7 +239,7 @@ export async function deleteProduct(id: string) {
     // Delete image from Cloudinary if it exists
     if (product?.imagePath) {
       try {
-        const publicId = product.imagePath.split('/').pop()?.split('.')[0];
+        const publicId = product.imagePath.split("/").pop()?.split(".")[0];
         if (publicId) {
           await cloudinary.uploader.destroy(`products/${publicId}`);
         }
@@ -222,6 +256,9 @@ export async function deleteProduct(id: string) {
     return { success: true };
   } catch (error) {
     console.error("Error deleting product:", error);
-    return { error: "Failed to delete product" };
+    return {
+      success: false,
+      error: "Failed to delete product. Please try again."
+    };
   }
 }
