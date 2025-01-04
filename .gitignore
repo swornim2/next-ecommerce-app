@@ -27,6 +27,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -34,6 +35,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-/products/*
-/public/products/*
-.env
+
+# Uploaded product images
+/public/products/
+# But keep the logo directory
+!/public/logo/

@@ -78,8 +78,10 @@ export function ProductCard({
           alt={name}
           src={imagePath}
           fill
-          className="object-cover"
+          className="object-cover transition-transform duration-300 hover:scale-105"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority
+          quality={85}
         />
         {categoryName && (
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-[#FF0000] text-xs font-medium px-2 py-1 rounded-full">

@@ -161,14 +161,24 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="image">Image</Label>
-        <Input type="file" id="image" name="image" required={product == null} />
-        {product != null && (
-          <Image
-            src={product.imagePath}
-            height="400"
-            width="400"
-            alt="Product Image"
-          />
+        <Input 
+          type="file" 
+          id="image" 
+          name="image" 
+          required={product == null}
+          accept="image/*"
+        />
+        {product?.imagePath && (
+          <div className="mt-2">
+            <Image
+              src={product.imagePath}
+              height={200}
+              width={200}
+              alt={product.name}
+              className="rounded-lg object-cover"
+              priority
+            />
+          </div>
         )}
         {error?.image && <div className="text-destructive">{error.image}</div>}
       </div>
