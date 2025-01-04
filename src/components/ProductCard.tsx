@@ -1,10 +1,12 @@
+"use client"
+
+import { useState } from "react"
+import Image from "next/image"
+import { ImageOff } from "lucide-react"
+import { toast } from "sonner"
 import { formatCurrency } from "@/lib/formatters"
 import { useCartActions } from "@/hooks/useCart"
 import { useCart } from "@/lib/CartContext"
-import { useState } from "react"
-import { toast } from "sonner"
-import Image from "next/image"
-import { ImageOff } from "lucide-react"
 
 type ProductCardProps = {
   id: string

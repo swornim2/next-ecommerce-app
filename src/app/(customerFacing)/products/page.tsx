@@ -13,6 +13,9 @@ const getProducts = cache(
       const products = await db.product.findMany({
         where: { isAvailableForPurchase: true },
         orderBy: { name: "asc" },
+        include: {
+          category: true
+        }
       });
       console.log("[Server] Found products:", products);
       return products;
@@ -50,7 +53,7 @@ export default async function ProductsPage() {
               </div>
             }
           >
-            <ProductsSuspense />
+            <ProductList />
           </Suspense>
         </div>
       </div>
@@ -58,9 +61,35 @@ export default async function ProductsPage() {
   )
 }
 
-async function ProductsSuspense() {
-  console.log("[Server] ProductsSuspense component rendering");
+async function ProductList() {
+  console.log("[Server] ProductList component rendering");
   const products = await getProducts()
-  console.log("[Server] Products in ProductsSuspense:", products.length);
-  return products.map(product => <ProductCard key={product.id} {...product} />)
+  console.log("[Server] Products in ProductList:", products.length);
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          id={product.id}
+          name={product.name}
+          price={product.price}
+          description={product.description}
+          imagePath={product.imagePath}
+          isAvailableForPurchase={product.isAvailableForPurchase}
+          categoryId={product.categoryId}
+          categoryName={product.category?.name}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ProductsSuspense() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {[...Array(8)].map((_, i) => (
+        <ProductCardSkeleton key={i} />
+      ))}
+    </div>
+  )
 }
