@@ -3,13 +3,21 @@
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary.server";
+import { v2 as cloudinary } from 'cloudinary';
+import { deleteFromCloudinary } from "@/lib/cloudinary.server";
 
 export type ActionResult = {
   success: boolean;
   error?: string;
   fieldErrors?: Record<string, string[]>;
 } | null;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const imageSchema = z
   .object({
@@ -34,9 +42,33 @@ const addSchema = z.object({
 
 async function handleImageUpload(imageData: File) {
   try {
-    const imageBuffer = Buffer.from(await imageData.arrayBuffer());
-    const result = await uploadToCloudinary(imageBuffer);
-    return result;
+    const bytes = await imageData.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Create a promise to handle the upload
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'products',
+          resource_type: 'auto',
+          public_id: `product-${Date.now()}`
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      // Convert buffer to stream and pipe to cloudinary
+      const Readable = require('stream').Readable;
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
+      stream.pipe(uploadStream);
+    });
+
+    const result = await uploadPromise;
+    return result as any;
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);
     throw new Error('Failed to upload image');
@@ -81,7 +113,7 @@ export async function addProduct(
         description,
         price: parseInt(price),
         categoryId,
-        imagePath: uploadResult.public_id,
+        imagePath: uploadResult.secure_url,
       },
     });
 
@@ -132,7 +164,7 @@ export async function updateProduct(
       }
 
       const uploadResult = await handleImageUpload(imageData);
-      updateData.imagePath = uploadResult.public_id;
+      updateData.imagePath = uploadResult.secure_url;
 
       // Delete old image from Cloudinary
       const oldProduct = await db.product.findUnique({

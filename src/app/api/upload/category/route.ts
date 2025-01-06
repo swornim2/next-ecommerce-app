@@ -1,21 +1,26 @@
 import prisma from "@/db/db";
-import fs from "fs/promises";
 import { NextResponse } from "next/server";
-import path from "path";
+import { v2 as cloudinary } from 'cloudinary';
 
-export const runtime = "nodejs"; // or 'edge' depending on your runtime requirements
+export const runtime = "nodejs"; 
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 export async function POST(request: Request) {
   try {
-    // Log the start of the request
     console.log("Starting file upload process...");
 
     const formData = await request.formData();
-    const file = formData.get("file");
+    const file = formData.get("file") as File;
     const categoryId = formData.get("categoryId");
 
-    if (!file || !(file instanceof Blob)) {
-      console.error("No file or invalid file received");
+    if (!file) {
+      console.error("No file received");
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
@@ -40,60 +45,49 @@ export async function POST(request: Request) {
       );
     }
 
-    // Determine file extension
-    const fileType = file.type;
-    const fileExtension = fileType === "image/png" ? ".png" : ".jpg";
-
-    // Create unique filename
-    const timestamp = Date.now();
-    const filename = `${category.slug}-${timestamp}${fileExtension}`;
-    const uploadDir = path.join(process.cwd(), "public", "categories");
-    const filePath = path.join(uploadDir, filename);
-
-    console.log("File will be saved to:", filePath);
-
-    // Ensure directory exists
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    // Convert file to buffer and save
+    // Get file buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    try {
-      await fs.writeFile(filePath, buffer as any);
-      console.log("File written successfully");
-    } catch (writeError) {
-      console.error("Error writing file:", writeError);
-      throw new Error("Failed to write file to disk");
-    }
+    // Create a promise to handle the upload
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'categories',
+          resource_type: 'auto',
+          public_id: `${category.slug}-${Date.now()}`
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
 
-    // Update category with image path (using the correct format for Next.js Image component)
-    const imagePath = `/categories/${filename}`; // Store path without 'public' prefix
+      // Convert buffer to stream and pipe to cloudinary
+      const Readable = require('stream').Readable;
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
+      stream.pipe(uploadStream);
+    });
 
-    try {
-      const updatedCategory = await prisma.category.update({
-        where: { id: categoryId },
-        data: { imagePath },
-      });
-      console.log("Category updated with image path");
+    const uploadResult = await uploadPromise as any;
 
-      return NextResponse.json({
-        success: true,
-        category: updatedCategory,
-        imagePath,
-      });
-    } catch (dbError) {
-      // If database update fails, try to clean up the file
-      await fs.unlink(filePath).catch(console.error);
-      throw dbError;
-    }
+    // Update category with new image URL
+    const updatedCategory = await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        imagePath: uploadResult.secure_url
+      }
+    });
+
+    console.log("File upload successful:", uploadResult.secure_url);
+
+    return NextResponse.json(updatedCategory);
   } catch (error) {
     console.error("Error in file upload:", error);
     return NextResponse.json(
-      {
-        error: "Failed to upload file",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Error uploading file" },
       { status: 500 }
     );
   }
