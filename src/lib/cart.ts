@@ -32,7 +32,7 @@ export async function getCart(): Promise<CartItem[]> {
     return []
   }
 
-  return cart.items.map(item => ({
+  return cart.items.map((item: { productId: any; quantity: any; product: { name: any; imagePath: any; price: any } }) => ({
     id: item.productId,
     quantity: item.quantity,
     name: item.product.name,

@@ -15,8 +15,25 @@ export async function searchProducts(query: string) {
           { description: { contains: query.toLowerCase() } },
         ],
       },
-      include: {
-        category: true,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        imagePath: true,
+        price: true,
+        salePrice: true,
+        onSale: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            imagePath: true,
+            createdAt: true,
+            updatedAt: true,
+            slug: true,
+          }
+        }
       },
       take: 5,
     });
@@ -39,8 +56,25 @@ export async function searchProducts(query: string) {
             contains: query
           }
         },
-        include: {
-          category: true
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          imagePath: true,
+          price: true,
+          salePrice: true,
+          onSale: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              imagePath: true,
+              createdAt: true,
+              updatedAt: true,
+              slug: true,
+            }
+          }
         },
         take: 5
       });

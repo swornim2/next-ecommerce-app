@@ -4,9 +4,27 @@ import prisma from '@/db/db'
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
+      where: {
+        isActive: {
+          not: false
+        }
+      },
       orderBy: {
         name: 'asc',
       },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        imagePath: true,
+        slug: true,
+        isActive: true,
+        _count: {
+          select: {
+            products: true
+          }
+        }
+      }
     })
     return NextResponse.json(categories)
   } catch (error) {
@@ -57,29 +75,26 @@ export async function POST(request: Request) {
     })
 
     if (existingCategory) {
-      console.log('Found existing category:', existingCategory)
       return NextResponse.json(
         { error: 'A category with this name already exists' },
         { status: 400 }
       )
     }
 
-    // Create the category
-    console.log('Creating category with data:', { name: trimmedName, slug, description })
     const category = await prisma.category.create({
       data: {
         name: trimmedName,
+        description,
         slug,
-        description: description?.trim() || null, // Ensure description is null if not provided
+        isActive: true // Set new categories as active by default
       },
     })
 
-    console.log('Created category:', category)
     return NextResponse.json(category)
   } catch (error) {
     console.error('Error creating category:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create category' },
+      { error: 'Failed to create category' },
       { status: 500 }
     )
   }

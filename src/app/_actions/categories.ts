@@ -8,6 +8,16 @@ export async function getCategories() {
       orderBy: {
         name: "asc",
       },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        imagePath: true,
+        createdAt: true,
+        updatedAt: true,
+        slug: true,
+        isActive: true,
+      }
     });
     return { categories };
   } catch (error) {

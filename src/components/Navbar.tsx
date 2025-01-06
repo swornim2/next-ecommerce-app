@@ -13,6 +13,7 @@ import { Search, Menu, X } from "lucide-react";
 import { CartButton } from "./CartButton";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { getCloudinaryUrl } from "@/lib/cloudinary";
 
 interface SearchResult {
   id: string;
@@ -20,6 +21,8 @@ interface SearchResult {
   description: string;
   imagePath: string | null;
   price: number;
+  salePrice: number | null;
+  onSale: boolean;
   category?: {
     id: string;
     name: string;
@@ -34,7 +37,6 @@ interface SearchResult {
 const navigation = [
   { name: "Categories", href: "/categories" },
   { name: "Products", href: "/products" },
-  { name: "Deals", href: "/deals" },
   { name: "About", href: "/about" },
 ];
 
@@ -97,6 +99,10 @@ export function Navbar() {
       console.error("Error adding to cart:", error);
       toast.error("Failed to add to cart");
     }
+  };
+
+  const formatCurrency = (price: number) => {
+    return `$${price.toFixed(2)}`;
   };
 
   return (
@@ -192,7 +198,7 @@ export function Navbar() {
                             >
                               <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
                                 <Image
-                                  src={product.imagePath || "/placeholder.jpg"}
+                                  src={product.imagePath ? getCloudinaryUrl(product.imagePath) : "/placeholder.jpg"}
                                   alt={product.name}
                                   fill
                                   className="object-cover group-hover/item:scale-110 transition-transform duration-300"
@@ -202,14 +208,25 @@ export function Navbar() {
                                 <div className="font-medium text-gray-900 truncate group-hover/item:text-[#8B7355] transition-colors">
                                   {product.name}
                                 </div>
-                                <div className="text-sm text-gray-500 mt-0.5">
+                                <div className="text-sm text-gray-600 truncate">
                                   {product.category?.name}
                                 </div>
-                                {product.price && (
-                                  <div className="text-[#8B7355] font-medium mt-1">
-                                    ${product.price.toFixed(2)}
-                                  </div>
-                                )}
+                                <div className="mt-1">
+                                  {product.onSale && product.salePrice ? (
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-red-600 font-medium">
+                                        {formatCurrency(product.salePrice)}
+                                      </span>
+                                      <span className="text-gray-400 text-sm line-through">
+                                        {formatCurrency(product.price)}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-900 font-medium">
+                                      {formatCurrency(product.price)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </button>
                             <Button
@@ -315,7 +332,7 @@ export function Navbar() {
                               >
                                 <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
                                   <Image
-                                    src={product.imagePath || "/placeholder.jpg"}
+                                    src={product.imagePath ? getCloudinaryUrl(product.imagePath) : "/placeholder.jpg"}
                                     alt={product.name}
                                     fill
                                     className="object-cover group-hover/item:scale-110 transition-transform duration-300"
@@ -325,14 +342,25 @@ export function Navbar() {
                                   <div className="font-medium text-gray-900 truncate group-hover/item:text-[#8B7355] transition-colors">
                                     {product.name}
                                   </div>
-                                  <div className="text-sm text-gray-500 mt-0.5">
+                                  <div className="text-sm text-gray-600 truncate">
                                     {product.category?.name}
                                   </div>
-                                  {product.price && (
-                                    <div className="text-[#8B7355] font-medium mt-1">
-                                      ${product.price.toFixed(2)}
-                                    </div>
-                                  )}
+                                  <div className="mt-1">
+                                    {product.onSale && product.salePrice ? (
+                                      <div className="flex items-baseline gap-2">
+                                        <span className="text-red-600 font-medium">
+                                          {formatCurrency(product.salePrice)}
+                                        </span>
+                                        <span className="text-gray-400 text-sm line-through">
+                                          {formatCurrency(product.price)}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-900 font-medium">
+                                        {formatCurrency(product.price)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </button>
                               <Button

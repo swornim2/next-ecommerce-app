@@ -4,6 +4,22 @@ import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard"
 import db from "@/db/db"
 import { cache } from "@/lib/cache"
 import { Suspense } from "react"
+import { Product, Category } from "@prisma/client"
+
+type ProductWithCategory = {
+  name: string;
+  id: string;
+  price: number;
+  salePrice: number | null;
+  onSale: boolean;
+  description: string;
+  imagePath: string;
+  isAvailableForPurchase: boolean;
+  categoryId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  category: Category | null;
+}
 
 const getProducts = cache(
   async () => {
@@ -13,12 +29,35 @@ const getProducts = cache(
       const products = await db.product.findMany({
         where: { isAvailableForPurchase: true },
         orderBy: { name: "asc" },
-        include: {
-          category: true
-        }
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          salePrice: true,
+          onSale: true,
+          imagePath: true,
+          isAvailableForPurchase: true,
+          categoryId: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
       });
-      console.log("[Server] Found products:", products);
-      return products;
+
+      // Transform the data to ensure all fields are present
+      const transformedProducts = products.map(product => ({
+        ...product,
+        onSale: product.onSale ?? false,
+        salePrice: product.salePrice ?? null,
+      }));
+
+      console.log("[Server] Found products:", transformedProducts);
+      return transformedProducts;
     } catch (error) {
       console.error("[Server] Error fetching products:", error);
       return [];
@@ -67,19 +106,29 @@ async function ProductList() {
   console.log("[Server] Products in ProductList:", products.length);
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          id={product.id}
-          name={product.name}
-          price={product.price}
-          description={product.description}
-          imagePath={product.imagePath}
-          isAvailableForPurchase={product.isAvailableForPurchase}
-          categoryId={product.categoryId}
-          categoryName={product.category?.name}
-        />
-      ))}
+      {products.map((product) => {
+        console.log('Rendering product:', {
+          name: product.name,
+          salePrice: product.salePrice,
+          onSale: product.onSale,
+        });
+        
+        return (
+          <ProductCard
+            key={product.id}
+            id={product.id}
+            name={product.name}
+            price={product.price}
+            salePrice={product.salePrice}
+            onSale={product.onSale}
+            description={product.description}
+            imagePath={product.imagePath}
+            isAvailableForPurchase={product.isAvailableForPurchase}
+            categoryId={product.categoryId}
+            categoryName={product.category?.name}
+          />
+        );
+      })}
     </div>
   )
 }

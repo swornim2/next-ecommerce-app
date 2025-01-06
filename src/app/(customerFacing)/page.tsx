@@ -29,6 +29,8 @@ interface Product {
   name: string;
   description: string;
   price: number;
+  salePrice: number | null;
+  onSale: boolean;
   imagePath: string;
   isAvailableForPurchase: boolean;
   categoryId: string;
@@ -134,7 +136,16 @@ export default function Home() {
         if (data.error) {
           throw new Error(data.error);
         }
-        setProducts(data);
+
+        // Transform the data to ensure all fields are present
+        const transformedProducts = data.map((product: any) => ({
+          ...product,
+          onSale: product.onSale ?? false,
+          salePrice: product.salePrice ?? null,
+        }));
+
+        console.log('Transformed products:', transformedProducts);
+        setProducts(transformedProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
         setError(error instanceof Error ? error.message : 'An unknown error occurred');
@@ -424,19 +435,29 @@ export default function Home() {
             ) : error ? (
               <p className="text-red-500">{error}</p>
             ) : (
-              products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  description={product.description}
-                  price={product.price}
-                  imagePath={product.imagePath}
-                  isAvailableForPurchase={product.isAvailableForPurchase}
-                  categoryId={product.categoryId}
-                  categoryName={product.category?.name || ""}
-                />
-              ))
+              products.map((product) => {
+                console.log('Rendering product:', {
+                  name: product.name,
+                  salePrice: product.salePrice,
+                  onSale: product.onSale,
+                });
+                
+                return (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    description={product.description}
+                    price={product.price}
+                    salePrice={product.salePrice}
+                    onSale={product.onSale}
+                    imagePath={product.imagePath}
+                    isAvailableForPurchase={product.isAvailableForPurchase}
+                    categoryId={product.categoryId}
+                    categoryName={product.category?.name || ""}
+                  />
+                );
+              })
             )}
           </Suspense>
         </div>

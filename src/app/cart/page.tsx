@@ -8,14 +8,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
+import { getCloudinaryUrl } from "@/lib/cloudinary";
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity } = useCart();
 
-  const subtotal = items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+  const subtotal = items.reduce((total, item) => {
+    const itemPrice = item.onSale && item.salePrice ? item.salePrice : item.price;
+    return total + itemPrice * item.quantity;
+  }, 0);
 
   return (
     <>
@@ -54,94 +55,110 @@ export default function CartPage() {
               <div className="lg:col-span-8">
                 <div className="bg-white shadow-lg rounded-2xl overflow-hidden">
                   <ul className="divide-y divide-gray-100">
-                    {items.map((item) => (
-                      <li
-                        key={item.id}
-                        className="p-6 hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200">
-                            <Image
-                              src={item.imagePath}
-                              alt={item.name}
-                              fill
-                              className="object-cover object-center"
-                              sizes="(max-width: 768px) 100px, 112px"
-                            />
-                          </div>
-                          <div className="ml-6 flex-1">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h3 className="text-base font-medium text-gray-900">
-                                  {item.name}
-                                </h3>
-                                <p className="mt-1 text-sm text-gray-600">
-                                  {formatCurrency(item.price)}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => removeFromCart(item.id)}
-                                className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg group"
-                              >
-                                <span className="sr-only">Remove</span>
-                                <Trash2 className="h-5 w-5" />
-                              </button>
+                    {items.map((item) => {
+                      const displayPrice = item.onSale && item.salePrice ? item.salePrice : item.price;
+                      return (
+                        <li
+                          key={item.id}
+                          className="p-6 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center">
+                            <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200">
+                              <Image
+                                src={getCloudinaryUrl(item.imagePath)}
+                                alt={item.name}
+                                fill
+                                className="object-cover object-center"
+                                sizes="(max-width: 768px) 100px, 112px"
+                              />
                             </div>
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
+                            <div className="ml-6 flex-1">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h3 className="text-base font-medium text-gray-900">
+                                    {item.name}
+                                  </h3>
+                                  <div className="mt-1">
+                                    {item.onSale && item.salePrice ? (
+                                      <div className="flex flex-col">
+                                        <span className="text-sm text-red-600 font-medium">
+                                          {formatCurrency(item.salePrice)}
+                                        </span>
+                                        <span className="text-sm text-gray-500 line-through">
+                                          MRP: {formatCurrency(item.price)}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-gray-600">
+                                        {formatCurrency(item.price)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
                                 <button
-                                  onClick={() =>
-                                    updateQuantity(
-                                      item.id,
-                                      Math.max(1, item.quantity - 1)
-                                    )
-                                  }
-                                  className={cn(
-                                    "p-1 rounded-lg transition-colors",
-                                    item.quantity <= 1
-                                      ? "text-gray-300 cursor-not-allowed"
-                                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                                  )}
-                                  disabled={item.quantity <= 1}
+                                  onClick={() => removeFromCart(item.id)}
+                                  className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg group"
                                 >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <span className="text-gray-900 font-medium w-8 text-center">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    updateQuantity(
-                                      item.id,
-                                      Math.min(10, item.quantity + 1)
-                                    )
-                                  }
-                                  className={cn(
-                                    "p-1 rounded-lg transition-colors",
-                                    item.quantity >= 10
-                                      ? "text-gray-300 cursor-not-allowed"
-                                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                                  )}
-                                  disabled={item.quantity >= 10}
-                                >
-                                  <Plus className="h-4 w-4" />
+                                  <span className="sr-only">Remove</span>
+                                  <Trash2 className="h-5 w-5" />
                                 </button>
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900">
-                                  {formatCurrency(item.price * item.quantity)}
-                                </p>
-                                {item.quantity > 1 && (
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {formatCurrency(item.price)} each
+                              <div className="mt-4 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <button
+                                    onClick={() =>
+                                      updateQuantity(
+                                        item.id,
+                                        Math.max(1, item.quantity - 1)
+                                      )
+                                    }
+                                    className={cn(
+                                      "p-1 rounded-lg transition-colors",
+                                      item.quantity <= 1
+                                        ? "text-gray-300 cursor-not-allowed"
+                                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                                    )}
+                                    disabled={item.quantity <= 1}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <span className="text-gray-900 font-medium w-8 text-center">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      updateQuantity(
+                                        item.id,
+                                        Math.min(10, item.quantity + 1)
+                                      )
+                                    }
+                                    className={cn(
+                                      "p-1 rounded-lg transition-colors",
+                                      item.quantity >= 10
+                                        ? "text-gray-300 cursor-not-allowed"
+                                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                                    )}
+                                    disabled={item.quantity >= 10}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {formatCurrency(displayPrice * item.quantity)}
                                   </p>
-                                )}
+                                  {item.quantity > 1 && (
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      {formatCurrency(displayPrice)} each
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>

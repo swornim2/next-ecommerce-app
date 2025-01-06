@@ -1,15 +1,6 @@
 import prisma from "@/db/db";
 import { NextResponse } from "next/server";
-import { v2 as cloudinary } from 'cloudinary';
-import fs from "fs/promises";
-import path from "path";
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+import { uploadToCloudinary } from "@/lib/cloudinary.server";
 
 export const runtime = "nodejs";
 
@@ -29,73 +20,45 @@ export async function POST(request: Request) {
     if (!productId || typeof productId !== "string") {
       console.error("Invalid product ID:", productId);
       return NextResponse.json(
-        { error: "Valid product ID is required" },
+        { error: "Invalid product ID" },
         { status: 400 }
       );
     }
 
-    // Find the product
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    if (!product) {
-      console.error("Product not found:", productId);
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
-
-    // Convert file to buffer for upload
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Upload to Cloudinary
-    const uploadPromise = new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: "products",
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-
-      // Convert buffer to stream and pipe to Cloudinary
-      const bufferStream = require('stream').Readable.from(buffer);
-      bufferStream.pipe(uploadStream);
-    });
-
-    const uploadResult = await uploadPromise as any;
-    const imageUrl = uploadResult.secure_url;
-
-    // Update product with Cloudinary URL
     try {
-      const updatedProduct = await prisma.product.update({
-        where: { id: productId },
-        data: { imagePath: imageUrl },
+      // Upload to Cloudinary using our server function
+      const result = await uploadToCloudinary(buffer, {
+        folder: "products",
+        public_id: `product_${productId}`,
       });
-      console.log("Product updated with image path");
 
-      return NextResponse.json({
-        success: true,
-        product: updatedProduct,
-        imagePath: imageUrl,
+      // Update product with image URL
+      await prisma.product.update({
+        where: { id: productId },
+        data: {
+          imagePath: (result as any).public_id,
+        },
       });
-    } catch (dbError) {
-      // If database update fails, clean up the file
-      console.error("Error updating product:", dbError);
-      throw dbError;
+
+      return NextResponse.json({ 
+        success: true,
+        url: (result as any).secure_url,
+        publicId: (result as any).public_id
+      });
+    } catch (uploadError) {
+      console.error("Error uploading to Cloudinary:", uploadError);
+      return NextResponse.json(
+        { error: "Failed to upload image" },
+        { status: 500 }
+      );
     }
   } catch (error) {
-    console.error("Error in file upload:", error);
+    console.error("Error in product image upload:", error);
     return NextResponse.json(
-      {
-        error: "Failed to upload file",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

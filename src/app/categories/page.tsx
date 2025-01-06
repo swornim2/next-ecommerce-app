@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCategories } from "@/app/_actions/categories";
+import { getCloudinaryUrl } from "@/lib/cloudinary";
 
 interface Category {
   id: string;
@@ -13,6 +14,7 @@ interface Category {
   createdAt: Date;
   updatedAt: Date;
   slug: string;
+  isActive: boolean;
 }
 
 export default function CategoriesPage() {
@@ -29,7 +31,11 @@ export default function CategoriesPage() {
         if (result.error) {
           throw new Error(result.error);
         }
-        setCategories(result.categories || []);
+        // Filter out inactive categories
+        const activeCategories = (result.categories || []).filter(
+          (category) => category.isActive !== false
+        );
+        setCategories(activeCategories);
       } catch (err) {
         console.error("Error fetching categories:", err);
         setError(err instanceof Error ? err.message : "An unknown error occurred");
@@ -75,17 +81,21 @@ export default function CategoriesPage() {
               Try Again
             </button>
           </div>
+        ) : categories.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No categories available.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {categories.map((category) => (
               <Link
                 key={category.id}
-                href={`/categories/${category.id}`}
+                href={`/categories/${category.slug}`}
                 className="flex-shrink-0 snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0000] rounded-xl overflow-hidden group/card relative transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl"
               >
                 <div className="relative h-[410px] w-full">
                   <Image
-                    src={category.imagePath || "/images/placeholder.jpg"}
+                    src={category.imagePath ? getCloudinaryUrl(category.imagePath) : "/images/placeholder.jpg"}
                     alt={category.name}
                     fill
                     className="object-cover rounded-xl"
@@ -99,16 +109,15 @@ export default function CategoriesPage() {
                     {/* Content wrapper for animation */}
                     <div className="transform transition-all duration-300 group-hover/card:-translate-y-2">
                       {/* Title with text shadow for better readability */}
-                      <h3 className="text-white font-semibold text-xl drop-shadow-lg">
+                      <h3 className="text-xl font-bold text-white mb-2 drop-shadow-lg">
                         {category.name}
                       </h3>
-
-                      {/* Description - slides up and fades in on hover */}
-                      <div className="h-0 group-hover/card:h-auto overflow-hidden transition-all duration-300">
-                        <p className="text-white/0 group-hover/card:text-white/90 transform translate-y-4 group-hover/card:translate-y-0 transition-all duration-300 text-sm mt-2 line-clamp-2 drop-shadow-lg">
-                          {category.description || "Explore our collection"}
+                      {/* Description with text shadow */}
+                      {category.description && (
+                        <p className="text-white/90 text-sm line-clamp-2 drop-shadow-lg">
+                          {category.description}
                         </p>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>

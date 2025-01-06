@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical } from "lucide-react"
 import { DeleteDropDownItem } from "./_components/UserActions"
+import { Key, ReactElement, JSXElementConstructor, ReactNode, ReactPortal, PromiseLikeOfReactNode } from "react"
+
+type User = {
+  id: string
+  email: string
+  orders: { price: number }[]
+}
 
 function getUsers() {
   return db.user.findMany({
@@ -38,7 +45,7 @@ export default function UsersPage() {
 }
 
 async function UsersTable() {
-  const users = await getUsers()
+  const users = await getUsers() as User[]
 
   if (users.length === 0) return <p>No customers found</p>
 
@@ -55,7 +62,7 @@ async function UsersTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {users.map(user => (
+        {users.map((user) => (
           <TableRow key={user.id}>
             <TableCell>{user.email}</TableCell>
             <TableCell>{formatNumber(user.orders.length)}</TableCell>
@@ -72,7 +79,7 @@ async function UsersTable() {
                   <span className="sr-only">Actions</span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DeleteDropDownItem id={user.id} />
+                  {user.id && <DeleteDropDownItem id={user.id} />}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>

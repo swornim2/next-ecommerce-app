@@ -1,6 +1,6 @@
 "use server";
 
-import db from "@/db/db";
+import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
@@ -10,58 +10,83 @@ export type CartItem = {
   description: string | null;
   imagePath: string;
   price: number;
+  salePrice: number | null;
+  onSale: boolean;
   quantity: number;
 };
 
 export async function getCart(): Promise<CartItem[]> {
-  const cartId = cookies().get("cartId")?.value;
-  if (!cartId) return [];
+  try {
+    const cartId = cookies().get("cartId")?.value;
+    if (!cartId) return [];
 
-  const cart = await db.cart.findUnique({
-    where: { id: cartId },
-    include: {
-      items: {
-        include: {
-          product: true,
+    const cart = await db.cart.findUnique({
+      where: { id: cartId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!cart) return [];
+    if (!cart) {
+      cookies().delete("cartId");
+      return [];
+    }
 
-  return cart.items.map((item) => ({
-    id: item.product.id,
-    name: item.product.name,
-    description: item.product.description,
-    imagePath: item.product.imagePath,
-    price: item.product.price,
-    quantity: item.quantity,
-  }));
+    return cart.items.map((item) => ({
+      id: item.product.id,
+      name: item.product.name,
+      description: item.product.description,
+      imagePath: item.product.imagePath,
+      price: item.product.price,
+      salePrice: item.product.salePrice,
+      onSale: item.product.onSale ?? false,
+      quantity: item.quantity,
+    }));
+  } catch (error) {
+    console.error("Error getting cart:", error);
+    return [];
+  }
 }
 
 export async function createCart(): Promise<string> {
-  const cart = await db.cart.create({
-    data: {},
-  });
+  try {
+    const cart = await db.cart.create({
+      data: {},
+    });
 
-  // Set the cookie with a 30-day expiration
-  cookies().set("cartId", cart.id, {
-    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    httpOnly: true,
-    sameSite: "lax",
-  });
+    cookies().set("cartId", cart.id, {
+      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
 
-  return cart.id;
+    return cart.id;
+  } catch (error) {
+    console.error("Error creating cart:", error);
+    throw new Error("Failed to create cart");
+  }
 }
 
 export async function addToCart(productId: string): Promise<void> {
   try {
-    // First, verify that the product exists and is available for purchase
+    let cartId = cookies().get("cartId")?.value;
+
+    // Verify the product exists and is available
     const product = await db.product.findUnique({
       where: {
         id: productId,
         isAvailableForPurchase: true,
+      },
+      select: {
+        id: true,
+        price: true,
+        salePrice: true,
+        onSale: true,
       },
     });
 
@@ -69,55 +94,50 @@ export async function addToCart(productId: string): Promise<void> {
       throw new Error("Product not found or not available for purchase");
     }
 
-    // Get or create cart
-    let cartId = cookies().get("cartId")?.value || "";
-
+    // Create or get cart
     if (!cartId) {
-      // If no cart exists, create one
       cartId = await createCart();
     } else {
-      // Verify the cart exists
+      // Verify cart exists
       const cart = await db.cart.findUnique({
         where: { id: cartId },
       });
 
-      // If cart not found, create a new one
       if (!cart) {
         cartId = await createCart();
       }
     }
 
-    // Use a transaction to ensure consistency
-    await db.$transaction(async (tx) => {
-      // Check for existing cart item
-      const existingCartItem = await tx.cartItem.findFirst({
-        where: {
-          cartId,
-          productId,
-        },
-      });
-
-      if (existingCartItem) {
-        // Update existing cart item
-        await tx.cartItem.update({
-          where: { id: existingCartItem.id },
-          data: { quantity: existingCartItem.quantity + 1 },
-        });
-      } else {
-        // Create new cart item
-        await tx.cartItem.create({
-          data: {
-            cartId,
-            productId,
-            quantity: 1,
-          },
-        });
-      }
+    // Check for existing cart item
+    const existingCartItem = await db.cartItem.findFirst({
+      where: {
+        cartId,
+        productId,
+      },
     });
 
-    // Revalidate the cart page and any other pages that show cart information
+    if (existingCartItem) {
+      await db.cartItem.update({
+        where: { id: existingCartItem.id },
+        data: {
+          quantity: existingCartItem.quantity + 1,
+        },
+      });
+    } else {
+      await db.cartItem.create({
+        data: {
+          cart: {
+            connect: { id: cartId },
+          },
+          product: {
+            connect: { id: productId },
+          },
+          quantity: 1,
+        },
+      });
+    }
+
     revalidatePath("/cart");
-    revalidatePath("/");
   } catch (error) {
     console.error("Error adding to cart:", error);
     throw error;
@@ -128,26 +148,59 @@ export async function updateCartItemQuantity(
   productId: string,
   quantity: number
 ): Promise<void> {
-  const cartId = cookies().get("cartId")?.value;
-  if (!cartId) throw new Error("No cart found");
+  try {
+    const cartId = cookies().get("cartId")?.value;
+    if (!cartId) throw new Error("No cart found");
 
-  const cartItem = await db.cartItem.findFirst({
-    where: { cartId, productId },
-  });
-
-  if (!cartItem) throw new Error("Item not found in cart");
-
-  if (quantity === 0) {
-    await db.cartItem.delete({
-      where: { id: cartItem.id },
+    const cartItem = await db.cartItem.findFirst({
+      where: {
+        cartId,
+        productId,
+      },
     });
-  } else {
-    await db.cartItem.update({
-      where: { id: cartItem.id },
-      data: { quantity },
-    });
+
+    if (!cartItem) {
+      throw new Error("Cart item not found");
+    }
+
+    if (quantity <= 0) {
+      await db.cartItem.delete({
+        where: { id: cartItem.id },
+      });
+    } else {
+      await db.cartItem.update({
+        where: { id: cartItem.id },
+        data: { quantity },
+      });
+    }
+
+    revalidatePath("/cart");
+  } catch (error) {
+    console.error("Error updating cart item quantity:", error);
+    throw error;
   }
+}
 
-  revalidatePath("/cart");
-  revalidatePath("/");
+export async function removeFromCart(productId: string): Promise<void> {
+  try {
+    const cartId = cookies().get("cartId")?.value;
+    if (!cartId) return;
+
+    const cartItem = await db.cartItem.findFirst({
+      where: {
+        cartId,
+        productId,
+      },
+    });
+
+    if (cartItem) {
+      await db.cartItem.delete({
+        where: { id: cartItem.id },
+      });
+      revalidatePath("/cart");
+    }
+  } catch (error) {
+    console.error("Error removing from cart:", error);
+    throw error;
+  }
 }

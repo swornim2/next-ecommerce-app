@@ -4,6 +4,17 @@ import { format } from "date-fns";
 import { Package } from "lucide-react";
 import Image from "next/image";
 
+interface Order {
+  id: string;
+  createdAt: Date;
+  price: number;
+  product: {
+    imagePath: string;
+    name: string;
+    description: string;
+  };
+}
+
 export default async function OrdersPage() {
   const orders = await getOrders();
 
@@ -23,7 +34,7 @@ export default async function OrdersPage() {
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">My Orders</h1>
       <div className="space-y-4">
-        {orders.map((order) => (
+        {orders.map((order: Order) => (
           <div
             key={order.id}
             className="border rounded-lg overflow-hidden bg-white"

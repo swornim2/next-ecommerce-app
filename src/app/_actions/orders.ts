@@ -3,12 +3,21 @@
 import db from "@/db/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+
 export type orderStatusType =
   | "pending"
   | "processing"
   | "shipped"
   | "delivered"
   | "cancelled";
+
+export type OrderResponse = {
+  success: boolean;
+  orders?: any[];
+  error?: string;
+  details?: any;
+};
+
 export async function getOrders() {
   const orders = await db.order.findMany({
     include: {
@@ -25,6 +34,7 @@ export async function getOrders() {
 
 export async function createOrder(orderData: {
   fullName: string;
+  email: string;
   phoneNumber: string;
   province: string;
   city: string;
@@ -35,21 +45,17 @@ export async function createOrder(orderData: {
     price: number;
   }>;
   total: number;
-}) {
+}): Promise<OrderResponse> {
   try {
     console.log("Creating order with data:", orderData);
 
-    // Create a mock user for now
-    const userEmail = `${orderData.phoneNumber}@example.com`;
-    console.log("Creating/finding user with email:", userEmail);
-
     const user = await db.user.upsert({
       where: {
-        email: userEmail,
+        email: orderData.email,
       },
       update: {},
       create: {
-        email: userEmail,
+        email: orderData.email,
       },
     });
 
@@ -59,15 +65,24 @@ export async function createOrder(orderData: {
     const orderPromises = orderData.items.map(async (item) => {
       console.log("Creating order for item:", item);
 
-      // Verify product exists
+      // Verify product exists and get current price
       const product = await db.product.findUnique({
         where: { id: item.id },
+        select: {
+          id: true,
+          price: true,
+          salePrice: true,
+          onSale: true,
+        },
       });
 
       if (!product) {
         console.error("Product not found:", item.id);
         throw new Error(`Product not found: ${item.id}`);
       }
+
+      // Calculate the actual price (use sale price if on sale)
+      const actualPrice = product.onSale && product.salePrice ? product.salePrice : product.price;
 
       const shippingDetails = {
         fullName: orderData.fullName,
@@ -80,7 +95,7 @@ export async function createOrder(orderData: {
 
       const order = await db.order.create({
         data: {
-          price: item.price * item.quantity,
+          price: actualPrice * item.quantity,
           userId: user.id,
           productId: item.id,
           shippingDetails: JSON.stringify(shippingDetails),
@@ -101,19 +116,16 @@ export async function createOrder(orderData: {
     // Clear the cart after successful order
     const cartId = cookies().get("cartId")?.value;
     if (cartId) {
-      console.log("Clearing cart:", cartId);
-      await db.cartItem.deleteMany({
-        where: {
-          cartId,
-        },
+      await db.cart.delete({
+        where: { id: cartId },
       });
+      cookies().delete("cartId");
     }
 
-    revalidatePath("/admin/orders");
+    revalidatePath("/orders");
     return { success: true, orders };
   } catch (error) {
     console.error("Error creating order:", error);
-    // Return more detailed error information
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to create order",

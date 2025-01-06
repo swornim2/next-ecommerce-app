@@ -47,19 +47,31 @@ export async function emailOrderHistory(
     };
   }
 
-  const orders = user.orders.map(async (order) => {
-    return {
-      ...order,
-      downloadVerificationId: (
-        await db.downloadVerification.create({
-          data: {
-            expiresAt: new Date(Date.now() + 24 * 1000 * 60 * 60),
-            productId: order.product.id,
-          },
-        })
-      ).id,
-    };
-  });
+  const orders = user.orders.map(
+    async (order: {
+      id: string;
+      price: number;
+      createdAt: Date;
+      product: {
+        id: string;
+        name: string;
+        imagePath: string;
+        description: string;
+      };
+    }) => {
+      return {
+        ...order,
+        downloadVerificationId: (
+          await db.downloadVerification.create({
+            data: {
+              expiresAt: new Date(Date.now() + 24 * 1000 * 60 * 60),
+              productId: order.product.id,
+            },
+          })
+        ).id,
+      };
+    }
+  );
 
   const data = await resend.emails.send({
     from: `Support <${process.env.SENDER_EMAIL}>`,
@@ -78,4 +90,55 @@ export async function emailOrderHistory(
     message:
       "Check your email to view your order history and download your products.",
   };
+}
+
+export async function createOrder(data: {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  province: string;
+  city: string;
+  streetAddress: string;
+  items: { id: string; quantity: number; price: number }[];
+  total: number;
+}) {
+  try {
+    // Validate email
+    const emailResult = emailSchema.safeParse(data.email);
+    if (!emailResult.success) {
+      return { success: false, error: "Invalid email address" };
+    }
+
+    // Create or update user with the email
+    const user = await db.user.upsert({
+      where: { email: data.email },
+      create: { email: data.email },
+      update: {},
+    });
+
+    // Create the order
+    const order = await db.order.create({
+      data: {
+        userId: user.id,
+        price: data.total,
+        shippingDetails: JSON.stringify({
+          fullName: data.fullName,
+          phoneNumber: data.phoneNumber,
+          province: data.province,
+          city: data.city,
+          streetAddress: data.streetAddress,
+        }),
+        productId: data.items[0].id, // Assuming single product order for now
+      },
+    });
+
+    return { success: true, order };
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return {
+      success: false,
+      error: "Failed to create order",
+      details: error instanceof Error ? error.message : String(error),
+    };
+  }
 }

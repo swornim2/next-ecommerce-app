@@ -15,7 +15,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { Category, Product } from "@prisma/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { toast } from "sonner";
 import { Upload, X } from "lucide-react";
@@ -34,6 +34,7 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories }: ProductFormProps) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [error, formAction] = useFormState<FormState, FormData>(
     product == null
       ? addProduct
@@ -85,6 +86,15 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     }
   };
 
+  const resetForm = () => {
+    if (formRef.current) {
+      formRef.current.reset();
+      setPrice("");
+      setSelectedCategoryId(categories[0]?.id || "");
+      clearImage();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -95,17 +105,16 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         ? await updateProduct(product.id, null, formData)
         : await addProduct(null, formData);
       if (result?.success) {
+        if (!product) {
+          // Clear form for new product
+          resetForm();
+        }
         toast.success(
           product
             ? "Product updated successfully!"
             : "Product created successfully!"
         );
-        if (!product) {
-          // Clear form for new product
-          e.currentTarget.reset();
-          setPrice("");
-          clearImage();
-        }
+        // Navigate after all local operations are complete
         router.push("/admin/products");
         router.refresh();
       } else if (result?.error) {
@@ -122,14 +131,18 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       }
     } catch (err) {
       console.error("Error submitting form:", err);
-      toast.error("Failed to save product");
+      toast.error("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="space-y-8"
+    >
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input

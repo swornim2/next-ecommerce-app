@@ -26,6 +26,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../_components/PageHeader";
+import { getCloudinaryUrl } from "@/lib/cloudinary";
 
 type Order = {
   id: string;
@@ -187,7 +188,7 @@ export default function OrdersPage() {
                       <div className="flex items-center space-x-3">
                         <div className="relative w-16 h-16">
                           <Image
-                            src={selectedOrder.product.imagePath}
+                            src={getCloudinaryUrl(selectedOrder.product.imagePath)}
                             alt={selectedOrder.product.name}
                             fill
                             className="object-cover rounded"
