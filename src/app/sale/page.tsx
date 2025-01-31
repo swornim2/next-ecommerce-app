@@ -25,6 +25,10 @@ export default async function SalePage() {
     b.discountPercentage - a.discountPercentage
   );
 
+  const maxDiscount = sortedProducts[0]?.salePrice
+    ? Math.round(((sortedProducts[0].price - sortedProducts[0].salePrice) / sortedProducts[0].price) * 100)
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -71,7 +75,7 @@ export default async function SalePage() {
                   salePrice={product.salePrice}
                   onSale={product.onSale}
                   description={product.description || ""}
-                  imagePath={product.imagePath ? getCloudinaryUrl(product.imagePath) : null}
+                  imagePath={product.imagePath ? getCloudinaryUrl(product.imagePath) : ""}
                   categoryName={product.category?.name}
                   isAvailableForPurchase={product.isAvailableForPurchase}
                 />

@@ -41,25 +41,12 @@ export function ProductCard({
   const [imageError, setImageError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  console.log("ProductCard received props:", {
-    id,
-    name,
-    price,
-    salePrice,
-    onSale,
-    typeofSalePrice: typeof salePrice,
-    typeofOnSale: typeof onSale,
-  });
-
-  const isOnSale =
-    onSale === true && typeof salePrice === "number" && salePrice > 0;
+  const isOnSale = onSale === true && typeof salePrice === "number" && salePrice > 0;
   const displayPrice = isOnSale ? salePrice : price;
 
   const handleAddToCart = async () => {
     try {
       setError(null);
-
-      // Optimistically update the cart
       const existingItem = items.find((item) => item.id === id);
       const updatedItems = existingItem
         ? items.map((item) =>
@@ -71,7 +58,7 @@ export function ProductCard({
               id,
               name,
               description,
-              imagePath,
+              imagePath: imagePath || "",
               price: displayPrice,
               salePrice,
               onSale,
@@ -80,23 +67,26 @@ export function ProductCard({
           ];
 
       updateLocalCart(updatedItems);
-
-      // Make the actual API call
       await addToCart(id);
       toast.success("Added to cart!");
     } catch (err) {
       console.error("Error adding to cart:", err);
       setError("Failed to add to cart");
       toast.error("Failed to add to cart. Please try again.");
-
-      // Revert the optimistic update on error
       updateLocalCart(items);
     }
   };
 
   return (
     <>
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px]">
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px] relative">
+        {!isAvailableForPurchase && (
+          <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center">
+            <div className="bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-xl transform -rotate-45">
+              Out of Stock
+            </div>
+          </div>
+        )}
         <div 
           className="relative w-full h-[300px] bg-gray-100 cursor-pointer"
           onClick={() => setIsModalOpen(true)}
@@ -106,7 +96,7 @@ export function ProductCard({
               alt={name}
               src={getCloudinaryUrl(imagePath)}
               fill
-              className="object-cover transition-transform duration-300 hover:scale-105"
+              className={`object-cover transition-transform duration-300 hover:scale-105 ${!isAvailableForPurchase ? 'opacity-75' : ''}`}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               priority
               quality={85}
@@ -132,17 +122,16 @@ export function ProductCard({
         </div>
         <div className="flex flex-col space-y-1.5 p-4">
           <h3 
-            className="text-xl font-semibold leading-none tracking-tight line-clamp-1 cursor-pointer hover:text-primary"
+            className={`text-xl font-semibold leading-none tracking-tight line-clamp-1 cursor-pointer hover:text-primary ${!isAvailableForPurchase ? 'text-gray-500' : ''}`}
             onClick={() => setIsModalOpen(true)}
           >
             {name}
           </h3>
-          
         </div>
         <div className="p-4 pt-0 mt-auto">
           <div className="mb-4">
             {isOnSale ? (
-              <div className="flex flex-col gap-1">
+              <div className={`flex flex-col gap-1 ${!isAvailableForPurchase ? 'opacity-75' : ''}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold text-red-600">
                     NPR {salePrice.toLocaleString()}
@@ -153,7 +142,7 @@ export function ProductCard({
                 </span>
               </div>
             ) : (
-              <span className="text-2xl font-bold">
+              <span className={`text-2xl font-bold ${!isAvailableForPurchase ? 'text-gray-500' : ''}`}>
                 NPR {price.toLocaleString()}
               </span>
             )}
@@ -182,8 +171,8 @@ export function ProductCard({
           price,
           salePrice,
           onSale,
-          description,
-          imagePath,
+          description: description || "",
+          imagePath: imagePath || "",
           isAvailableForPurchase,
           categoryName,
         }}

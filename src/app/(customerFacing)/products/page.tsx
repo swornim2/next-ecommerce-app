@@ -1,8 +1,5 @@
-"use server";
-
 import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard";
 import db from "@/db/db";
-import { cache } from "@/lib/cache";
 import { Suspense } from "react";
 import { Product, Category } from "@prisma/client";
 import Footer from "@/components/Footer";
@@ -22,13 +19,23 @@ type ProductWithCategory = {
   category: Category | null;
 };
 
-const getProducts = cache(async () => {
-  "use server";
+// Disable caching for this page
+export const dynamic = 'force-dynamic';
+
+async function getProducts() {
+  console.log("[Server] Attempting to fetch all products...");
   try {
-    console.log("[Server] Attempting to fetch all products...");
     const products = await db.product.findMany({
-      where: { isAvailableForPurchase: true },
-      orderBy: { name: "asc" },
+      where: { 
+        isAvailableForPurchase: true,
+        category: {
+          isActive: true
+        }
+      },
+      orderBy: [
+        { onSale: "desc" },
+        { name: "asc" }
+      ],
       select: {
         id: true,
         name: true,
@@ -44,17 +51,20 @@ const getProducts = cache(async () => {
             id: true,
             name: true,
             slug: true,
+            isActive: true,
           },
         },
       },
     });
 
-    // Transform the data to ensure all fields are present
-    const transformedProducts = products.map((product) => ({
-      ...product,
-      onSale: product.onSale ?? false,
-      salePrice: product.salePrice ?? null,
-    }));
+    // Transform and filter the data
+    const transformedProducts = products
+      .filter(product => product.category?.isActive)
+      .map((product) => ({
+        ...product,
+        onSale: product.onSale ?? false,
+        salePrice: product.salePrice ?? null,
+      }));
 
     console.log("[Server] Found products:", transformedProducts);
     return transformedProducts;
@@ -62,14 +72,12 @@ const getProducts = cache(async () => {
     console.error("[Server] Error fetching products:", error);
     return [];
   }
-}, ["/products", "getProducts"]);
+}
 
 export default async function ProductsPage() {
-  console.log("[Server] Rendering ProductsPage");
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 mt-16">
             Our Products
@@ -79,7 +87,6 @@ export default async function ProductsPage() {
           </p>
         </div>
 
-        {/* Products Grid */}
         <div className="flex flex-wrap gap-6">
           <Suspense
             fallback={
@@ -102,43 +109,37 @@ export default async function ProductsPage() {
 }
 
 async function ProductList() {
-  console.log("[Server] ProductList component rendering");
   const products = await getProducts();
-  console.log("[Server] Products in ProductList:", products.length);
+  
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-12 w-full">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+          No Products Available
+        </h2>
+        <p className="text-gray-600">
+          Check back soon for new products!
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {products.map((product) => {
-        console.log("Rendering product:", {
-          name: product.name,
-          salePrice: product.salePrice,
-          onSale: product.onSale,
-        });
-
-        return (
-          <ProductCard
-            key={product.id}
-            id={product.id}
-            name={product.name}
-            price={product.price}
-            salePrice={product.salePrice}
-            onSale={product.onSale}
-            description={product.description}
-            imagePath={product.imagePath}
-            isAvailableForPurchase={product.isAvailableForPurchase}
-            categoryId={product.categoryId}
-            categoryName={product.category?.name}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function ProductsSuspense() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {[...Array(8)].map((_, i) => (
-        <ProductCardSkeleton key={i} />
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          id={product.id}
+          name={product.name}
+          price={product.price}
+          salePrice={product.salePrice}
+          onSale={product.onSale}
+          description={product.description}
+          imagePath={product.imagePath}
+          isAvailableForPurchase={product.isAvailableForPurchase}
+          categoryId={product.categoryId}
+          categoryName={product.category?.name}
+        />
       ))}
     </div>
   );
