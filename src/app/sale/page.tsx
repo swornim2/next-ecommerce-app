@@ -5,68 +5,48 @@ import Footer from "@/components/Footer";
 import { getCloudinaryUrl } from "@/lib/cloudinary";
 
 export const metadata: Metadata = {
-  title: "Sale | BestBuy Store",
-  description: "Discover amazing deals on our premium home and kitchen appliances. Shop now and save big on quality products.",
+  title: "Sale | Your Store",
+  description: "Check out our amazing deals and discounts!",
 };
+
+export const dynamic = 'force-dynamic'; // Disable caching for this page
 
 export default async function SalePage() {
   const products = await getSaleProducts();
 
-  // Calculate discount percentage for sorting
-  const productsWithDiscount = products.map(product => ({
-    ...product,
-    discountPercentage: product.salePrice 
-      ? Math.round(((product.price - product.salePrice) / product.price) * 100)
-      : 0
-  }));
-
-  // Sort by highest discount first
-  const sortedProducts = productsWithDiscount.sort((a, b) => 
-    b.discountPercentage - a.discountPercentage
-  );
-
-  const maxDiscount = sortedProducts[0]?.salePrice
-    ? Math.round(((sortedProducts[0].price - sortedProducts[0].salePrice) / sortedProducts[0].price) * 100)
+  // Get the highest discount for the hero section
+  const maxDiscount = products.length > 0 
+    ? Math.round(products[0].discountPercentage) 
     : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-red-600 text-white py-12 mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4 mt-16">Special Offers</h1>
-            <p className="text-lg text-white/90 max-w-2xl mx-auto">
-              Discover incredible savings on premium appliances. Limited time offers on selected items.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Products Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {sortedProducts.length === 0 ? (
+      <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {products.length === 0 ? (
           <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              No Sale Items Available
-            </h2>
-            <p className="text-gray-600">
-              Check back soon for new deals and discounts!
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">No Sale Items Available</h1>
+            <p className="text-gray-600">Check back soon for new deals!</p>
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Sale Items ({sortedProducts.length})
-              </h2>
-              <div className="text-sm text-gray-600">
-                Showing all items on sale
+            {/* Hero Section */}
+            <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-8 mb-12 text-white">
+              <div className="max-w-3xl mx-auto text-center">
+                <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+                  Mega Sale!
+                </h1>
+                <p className="text-xl mb-6">
+                  Save up to {maxDiscount}% on selected items
+                </p>
+                <div className="inline-block bg-white text-red-600 px-6 py-3 rounded-full font-semibold text-lg">
+                  Limited Time Offer
+                </div>
               </div>
             </div>
 
+            {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {sortedProducts.map((product) => (
+              {products.map((product) => (
                 <ProductCard
                   key={product.id}
                   id={product.id}
@@ -75,7 +55,7 @@ export default async function SalePage() {
                   salePrice={product.salePrice}
                   onSale={product.onSale}
                   description={product.description || ""}
-                  imagePath={product.imagePath ? getCloudinaryUrl(product.imagePath) : ""}
+                  imagePath={product.imagePath ? getCloudinaryUrl(product.imagePath) : null}
                   categoryName={product.category?.name}
                   isAvailableForPurchase={product.isAvailableForPurchase}
                 />
