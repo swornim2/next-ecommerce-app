@@ -5,7 +5,7 @@ import { Cart } from "@prisma/client"
 export type CartItem = {
   id: string
   name: string
-  imagePath: string
+  imagePath: string | null
   price: number
   quantity: number
 }

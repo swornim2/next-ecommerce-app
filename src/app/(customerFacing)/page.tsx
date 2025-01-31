@@ -144,11 +144,13 @@ export default function Home() {
           salePrice: product.salePrice ?? null,
         }));
 
-        console.log('Transformed products:', transformedProducts);
+        console.log("Transformed products:", transformedProducts);
         setProducts(transformedProducts);
       } catch (error) {
         console.error("Error fetching products:", error);
-        setError(error instanceof Error ? error.message : 'An unknown error occurred');
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -169,7 +171,9 @@ export default function Home() {
         setCategories(data);
       } catch (error) {
         console.error("Error fetching categories:", error);
-        setCategoryError(error instanceof Error ? error.message : 'An unknown error occurred');
+        setCategoryError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
       } finally {
         setIsCategoryLoading(false);
       }
@@ -357,14 +361,15 @@ export default function Home() {
                             </p>
 
                             {/* Product count */}
-                            {category._count?.products !== undefined && category._count.products > 0 && (
-                              <p className="text-white/70 text-xs mt-2 drop-shadow-lg">
-                                {category._count?.products}{" "}
-                                {category._count?.products === 1
-                                  ? "product"
-                                  : "products"}
-                              </p>
-                            )}
+                            {category._count?.products !== undefined &&
+                              category._count.products > 0 && (
+                                <p className="text-white/70 text-xs mt-2 drop-shadow-lg">
+                                  {category._count?.products}{" "}
+                                  {category._count?.products === 1
+                                    ? "product"
+                                    : "products"}
+                                </p>
+                              )}
                           </div>
                         </div>
                       </div>
@@ -436,12 +441,12 @@ export default function Home() {
               <p className="text-red-500">{error}</p>
             ) : (
               products.map((product) => {
-                console.log('Rendering product:', {
+                console.log("Rendering product:", {
                   name: product.name,
                   salePrice: product.salePrice,
                   onSale: product.onSale,
                 });
-                
+
                 return (
                   <ProductCard
                     key={product.id}

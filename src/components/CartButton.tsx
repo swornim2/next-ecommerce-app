@@ -17,12 +17,11 @@ export function CartButton({ className }: CartButtonProps) {
       <div className={cn("relative", className)}>
         <ShoppingBag className="h-6 w-6 text-white" />
         {items.length > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
+          <span className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium">
             {items.length}
           </span>
         )}
       </div>
-
-      </Link>
+    </Link>
   )
 }

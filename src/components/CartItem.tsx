@@ -9,6 +9,8 @@ import { Trash2 } from "lucide-react"
 import { Button } from "./ui/button"
 import { useState } from "react"
 import { toast } from "sonner"
+import { getCloudinaryUrl } from "@/lib/cloudinary"
+import { ImageOff } from "lucide-react"
 
 type CartItemProps = {
   item: CartItemType
@@ -56,13 +58,19 @@ export function CartItem({ item }: CartItemProps) {
   return (
     <div className="flex gap-4 items-center border-b py-4">
       <div className="relative w-24 h-24">
-        <Image
-          src={item.imagePath}
-          alt={item.name}
-          fill
-          className="object-contain"
-          sizes="(max-width: 768px) 96px, 96px"
-        />
+        {item.imagePath ? (
+          <Image
+            src={getCloudinaryUrl(item.imagePath)}
+            alt={item.name}
+            fill
+            className="object-contain"
+            sizes="(max-width: 768px) 96px, 96px"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <ImageOff className="w-6 h-6 text-gray-400" />
+          </div>
+        )}
       </div>
       <div className="flex-1">
         <h3 className="font-semibold">{item.name}</h3>

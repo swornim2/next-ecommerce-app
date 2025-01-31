@@ -8,7 +8,7 @@ export type CartItem = {
   id: string;
   name: string;
   description: string | null;
-  imagePath: string;
+  imagePath: string | null;
   price: number;
   salePrice: number | null;
   onSale: boolean;

@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MapPin, Phone, User } from "lucide-react";
+import { ImageOff } from "lucide-react";
 
 export default function CheckoutPage() {
   const { items, refreshCart } = useCart();
@@ -264,12 +265,18 @@ export default function CheckoutPage() {
                     className="flex items-center space-x-4 py-4 first:pt-0 last:pb-0"
                   >
                     <div className="relative w-24 h-24 rounded-lg overflow-hidden">
-                      <Image
-                        src={getCloudinaryUrl(item.imagePath)}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
+                      {item.imagePath ? (
+                        <Image
+                          src={getCloudinaryUrl(item.imagePath)}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                          <ImageOff className="w-6 h-6 text-gray-400" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-base font-medium text-gray-900 truncate">

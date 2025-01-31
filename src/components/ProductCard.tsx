@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { useCartActions } from "@/hooks/useCart";
 import { useCart } from "@/lib/CartContext";
 import { getCloudinaryUrl } from "@/lib/cloudinary";
+import { ProductModal } from "./ProductModal";
 
 type ProductCardProps = {
   id: string;
@@ -16,7 +17,7 @@ type ProductCardProps = {
   salePrice: number | null;
   onSale: boolean;
   description: string | null;
-  imagePath: string;
+  imagePath: string | null;
   isAvailableForPurchase?: boolean;
   categoryId?: string;
   categoryName?: string;
@@ -38,6 +39,7 @@ export function ProductCard({
   const { items, updateLocalCart } = useCart();
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   console.log("ProductCard received props:", {
     id,
@@ -93,78 +95,102 @@ export function ProductCard({
   };
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px]">
-      <div className="relative w-full h-[300px] bg-gray-100">
-        {!imageError ? (
-          <Image
-            alt={name}
-            src={getCloudinaryUrl(imagePath)}
-            fill
-            className="object-cover transition-transform duration-300 hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority
-            quality={85}
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <ImageOff className="w-12 h-12 text-gray-400" />
+    <>
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm flex overflow-hidden flex-col h-[500px] w-[400px]">
+        <div 
+          className="relative w-full h-[300px] bg-gray-100 cursor-pointer"
+          onClick={() => setIsModalOpen(true)}
+        >
+          {!imageError && imagePath ? (
+            <Image
+              alt={name}
+              src={getCloudinaryUrl(imagePath)}
+              fill
+              className="object-cover transition-transform duration-300 hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority
+              quality={85}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <ImageOff className="w-12 h-12 text-gray-400" />
+            </div>
+          )}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+            {categoryName && (
+              <div className="bg-white/90 backdrop-blur-sm text-[#8B7355] text-xs font-medium px-2 py-1 rounded-full">
+                {categoryName}
+              </div>
+            )}
+            {isOnSale && (
+              <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                SALE
+              </div>
+            )}
           </div>
-        )}
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-          {categoryName && (
-            <div className="bg-white/90 backdrop-blur-sm text-[#8B7355] text-xs font-medium px-2 py-1 rounded-full">
-              {categoryName}
-            </div>
-          )}
-          {isOnSale && (
-            <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-              SALE
-            </div>
-          )}
         </div>
-      </div>
-      <div className="flex flex-col space-y-1.5 p-4">
-        <h3 className="text-xl font-semibold leading-none tracking-tight line-clamp-1">
-          {name}
-        </h3>
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {description}
-        </p>
-      </div>
-      <div className="p-4 pt-0 mt-auto">
-        <div className="mb-4">
-          {isOnSale ? (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-red-600">
-                  NPR {salePrice.toLocaleString()}
+        <div className="flex flex-col space-y-1.5 p-4">
+          <h3 
+            className="text-xl font-semibold leading-none tracking-tight line-clamp-1 cursor-pointer hover:text-primary"
+            onClick={() => setIsModalOpen(true)}
+          >
+            {name}
+          </h3>
+          
+        </div>
+        <div className="p-4 pt-0 mt-auto">
+          <div className="mb-4">
+            {isOnSale ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-red-600">
+                    NPR {salePrice.toLocaleString()}
+                  </span>
+                </div>
+                <span className="text-gray-500 text-sm line-through">
+                  MRP: NPR {price.toLocaleString()}
                 </span>
               </div>
-              <span className="text-gray-500 text-sm line-through">
-                MRP: NPR {price.toLocaleString()}
+            ) : (
+              <span className="text-2xl font-bold">
+                NPR {price.toLocaleString()}
               </span>
-            </div>
-          ) : (
-            <span className="text-2xl font-bold">
-              NPR {price.toLocaleString()}
-            </span>
-          )}
+            )}
+          </div>
+          <button
+            onClick={handleAddToCart}
+            disabled={!isAvailableForPurchase || isLoading}
+            className="w-full bg-[#000000] hover:bg-[#FF0000]/90 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoading
+              ? "Adding..."
+              : isAvailableForPurchase
+              ? "Add to Cart"
+              : "Out of Stock"}
+          </button>
+          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         </div>
-        <button
-          onClick={handleAddToCart}
-          disabled={!isAvailableForPurchase || isLoading}
-          className="w-full bg-[#000000] hover:bg-[#FF0000]/90 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isLoading
-            ? "Adding..."
-            : isAvailableForPurchase
-            ? "Add to Cart"
-            : "Out of Stock"}
-        </button>
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
       </div>
-    </div>
+
+      <ProductModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        product={{
+          id,
+          name,
+          price,
+          salePrice,
+          onSale,
+          description,
+          imagePath,
+          isAvailableForPurchase,
+          categoryName,
+        }}
+        onAddToCart={handleAddToCart}
+        isLoading={isLoading}
+      />
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCart } from "@/lib/CartContext";
-import { ShoppingCart, X, Plus, Minus, Trash2 } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Trash2, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/formatters";
 import Image from "next/image";
@@ -64,13 +64,19 @@ export default function CartPage() {
                         >
                           <div className="flex items-center">
                             <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200">
-                              <Image
-                                src={getCloudinaryUrl(item.imagePath)}
-                                alt={item.name}
-                                fill
-                                className="object-cover object-center"
-                                sizes="(max-width: 768px) 100px, 112px"
-                              />
+                              {item.imagePath ? (
+                                <Image
+                                  src={getCloudinaryUrl(item.imagePath)}
+                                  alt={item.name}
+                                  fill
+                                  className="object-cover object-center"
+                                  sizes="(max-width: 768px) 100px, 112px"
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                                  <ImageOff className="w-6 h-6 text-gray-400" />
+                                </div>
+                              )}
                             </div>
                             <div className="ml-6 flex-1">
                               <div className="flex items-start justify-between">
