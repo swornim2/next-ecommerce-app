@@ -206,11 +206,25 @@ export async function updateProduct(
     }
 
     const imageData = formData.get("image") as File | null;
+    const existingImagePath = formData.get("imagePath") as string | null;
 
-    const updateData = {
+    // Define the update data with an explicit type that includes imagePath
+    const updateData: {
+      name: string;
+      description: string;
+      price: number;
+      categoryId: string;
+      updatedAt: Date;
+      imagePath?: string; // Make imagePath optional
+    } = {
       ...validatedFields.data,
       updatedAt: new Date(),
     };
+    
+    // If an existing image path was provided in the form data, use it
+    if (existingImagePath) {
+      updateData.imagePath = existingImagePath;
+    }
 
     if (imageData && imageData.size > 0) {
       const validatedImage = imageSchema.safeParse({
