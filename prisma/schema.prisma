@@ -26,7 +26,8 @@ model Product {
   salePrice             Int?
   onSale                Boolean                @default(false)
   imagePath             String
-  description           String
+  imageUrl              String?                // Optional URL for externally hosted images
+  description           String    @db.Text
   categoryId            String
   isAvailableForPurchase Boolean               @default(true)
   createdAt             DateTime               @default(now())

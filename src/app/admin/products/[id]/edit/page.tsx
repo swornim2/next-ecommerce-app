@@ -1,4 +1,4 @@
-import db from "@/db/db"
+import { db } from "@/lib/prisma"
 import { PageHeader } from "../../../_components/PageHeader"
 import { ProductForm } from "../../_components/ProductForm"
 import { notFound } from "next/navigation"

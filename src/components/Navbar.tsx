@@ -117,7 +117,7 @@ export function Navbar() {
           >
             <Image
               src="/logo/logo.png"
-              alt="Bigstar Appliances"
+              alt="Bestbuy Store"
               width={80}
               height={40}
               className="object-contain"

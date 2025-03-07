@@ -19,7 +19,11 @@ import { useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { toast } from "sonner";
 import { Upload, X } from "lucide-react";
-import { ActionResult, addProduct, updateProduct } from "../../_actions/products";
+import {
+  ActionResult,
+  addProduct,
+  updateProduct,
+} from "../../_actions/products";
 
 type FormState = ActionResult;
 
@@ -35,12 +39,25 @@ interface ProductFormProps {
 export function ProductForm({ product, categories }: ProductFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [error, formAction] = useFormState<FormState, FormData>(
-    product == null
-      ? addProduct
-      : (updateProduct.bind(null, product.id) as any),
-    null
-  );
+  // Use direct server actions instead of useFormState
+  const submitAction = async (formData: FormData) => {
+    try {
+      if (product) {
+        // When editing, explicitly pass the existing image path
+        if (product.imagePath) {
+          formData.append("imagePath", product.imagePath);
+        }
+        return await updateProduct(product.id, null, formData);
+      }
+      return await addProduct(null, formData);
+    } catch (error) {
+      console.error("Server action error:", error);
+      return {
+        success: false,
+        error: "Failed to process request. Please try again.",
+      };
+    }
+  };
 
   const [price, setPrice] = useState<string>(product?.price?.toString() || "");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
@@ -53,7 +70,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setPrice(value);
+    // Ensure non-negative numbers only
+    if (value === "" || parseInt(value) >= 0) {
+      setPrice(value);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,51 +118,114 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+
     try {
+      // Client-side validation
+      if (!price || isNaN(Number(price)) || Number(price) < 0) {
+        toast.error("Please enter a valid price", {
+          duration: 3000,
+          position: "top-center",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate description length
+      if (descriptionLength > MAX_DESCRIPTION_LENGTH) {
+        toast.error(
+          `Description is too long. Please keep it under ${MAX_DESCRIPTION_LENGTH} characters.`,
+          {
+            duration: 3000,
+            position: "top-center",
+          }
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Prepare form data
       const formData = new FormData(e.currentTarget);
       formData.set("categoryId", selectedCategoryId);
-      const result: ActionResult = product
-        ? await updateProduct(product.id, null, formData)
-        : await addProduct(null, formData);
+      formData.set("price", price);
+
+      // Reset previous form errors
+      setFormError(null);
+
+      // Submit form directly to server action
+      const result = await submitAction(formData);
+      console.log("Server action result:", result);
+
+      // Handle success case
       if (result?.success) {
-        if (!product) {
-          // Clear form for new product
-          resetForm();
-        }
+        // Show success toast notification
         toast.success(
           product
             ? "Product updated successfully!"
-            : "Product created successfully!"
+            : "Product created successfully!",
+          {
+            duration: 3000,
+            position: "top-center",
+          }
         );
-        // Navigate after all local operations are complete
-        router.push("/admin/products");
-        router.refresh();
-      } else if (result?.error) {
-        toast.error(result.error);
+
+        // Redirect to products page after a brief delay
+        setTimeout(() => {
+          window.location.href = "/admin/products";
+        }, 500);
+        return;
+      }
+
+      // Store form errors for display
+      setFormError({
+        error: result?.error,
+        fieldErrors: result?.fieldErrors,
+      });
+
+      // Handle error cases
+      if (result?.error) {
+        toast.error(result.error, {
+          duration: 5000,
+          position: "top-center",
+        });
       } else if (result?.fieldErrors) {
         // Handle field-specific errors
         Object.entries(result.fieldErrors as Record<string, string[]>).forEach(
           ([field, errors]) => {
             if (errors?.length) {
-              toast.error(`${field}: ${errors[0]}`);
+              toast.error(`${field}: ${errors[0]}`, {
+                duration: 5000,
+                position: "top-center",
+              });
             }
           }
         );
       }
     } catch (err) {
+      // Handle unexpected errors
       console.error("Error submitting form:", err);
-      toast.error("An error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.", {
+        duration: 5000,
+        position: "top-center",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Track form state for error display
+  const [formError, setFormError] = useState<{
+    error?: string;
+    fieldErrors?: Record<string, string[]>;
+  } | null>(null);
+
+  // Track description length for validation
+  const [descriptionLength, setDescriptionLength] = useState<number>(
+    product?.description?.length || 0
+  );
+  const MAX_DESCRIPTION_LENGTH = 5000; // New limit using TEXT field type
+
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="space-y-8"
-    >
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input
@@ -152,8 +235,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           required
           defaultValue={product?.name || ""}
         />
-        {error?.fieldErrors?.name && (
-          <div className="text-destructive">{error.fieldErrors.name[0]}</div>
+        {formError?.fieldErrors?.name && (
+          <div className="text-destructive">
+            {formError.fieldErrors.name[0]}
+          </div>
         )}
       </div>
 
@@ -187,9 +272,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             ))}
           </SelectContent>
         </Select>
-        {error?.fieldErrors?.categoryId && (
+        {formError?.fieldErrors?.categoryId && (
           <div className="text-destructive">
-            {error.fieldErrors.categoryId[0]}
+            {formError.fieldErrors.categoryId[0]}
           </div>
         )}
       </div>
@@ -205,26 +290,53 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           onChange={handlePriceChange}
           min="0"
           step="1"
+          placeholder="Enter price in NPR"
         />
         <p className="text-sm text-muted-foreground">
           Preview: {formatCurrency(Number(price) || 0)}
         </p>
-        {error?.fieldErrors?.price && (
-          <div className="text-destructive">{error.fieldErrors.price[0]}</div>
+        {formError?.fieldErrors?.price && (
+          <div className="text-destructive">
+            {formError.fieldErrors.price[0]}
+          </div>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <div className="flex justify-between">
+          <Label htmlFor="description">Description</Label>
+          <span
+            className={`text-xs ${
+              descriptionLength > MAX_DESCRIPTION_LENGTH
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }`}
+          >
+            {descriptionLength}/{MAX_DESCRIPTION_LENGTH} characters
+          </span>
+        </div>
         <Textarea
           id="description"
           name="description"
           required
           defaultValue={product?.description || ""}
+          onChange={(e) => setDescriptionLength(e.target.value.length)}
+          className={
+            descriptionLength > MAX_DESCRIPTION_LENGTH
+              ? "border-destructive"
+              : ""
+          }
+          rows={6}
         />
-        {error?.fieldErrors?.description && (
+        {descriptionLength > MAX_DESCRIPTION_LENGTH && (
+          <div className="text-destructive text-sm">
+            Description is too long. Please keep it under{" "}
+            {MAX_DESCRIPTION_LENGTH} characters.
+          </div>
+        )}
+        {formError?.fieldErrors?.description && (
           <div className="text-destructive">
-            {error.fieldErrors.description[0]}
+            {formError.fieldErrors.description[0]}
           </div>
         )}
       </div>
@@ -239,7 +351,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
               name="image"
               onChange={handleImageChange}
               accept="image/*"
-              required={!product}
+              required={product ? false : true}
               className="flex-1"
             />
             {imagePreview && (
@@ -265,8 +377,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             </div>
           )}
         </div>
-        {error?.fieldErrors?.image && (
-          <div className="text-destructive">{error.fieldErrors.image[0]}</div>
+        {formError?.fieldErrors?.image && (
+          <div className="text-destructive">
+            {formError.fieldErrors.image[0]}
+          </div>
         )}
       </div>
 

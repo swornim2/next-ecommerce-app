@@ -3,7 +3,7 @@
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from "cloudinary";
 import { deleteFromCloudinary } from "@/lib/cloudinary.server";
 
 export type ActionResult = {
@@ -16,7 +16,7 @@ export type ActionResult = {
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const imageSchema = z
@@ -49,9 +49,9 @@ async function handleImageUpload(imageData: File) {
     const uploadPromise = new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: 'products',
-          resource_type: 'auto',
-          public_id: `product-${Date.now()}`
+          folder: "products",
+          resource_type: "auto",
+          public_id: `product-${Date.now()}`,
         },
         (error, result) => {
           if (error) reject(error);
@@ -60,7 +60,7 @@ async function handleImageUpload(imageData: File) {
       );
 
       // Convert buffer to stream and pipe to cloudinary
-      const Readable = require('stream').Readable;
+      const Readable = require("stream").Readable;
       const stream = new Readable();
       stream.push(buffer);
       stream.push(null);
@@ -70,8 +70,8 @@ async function handleImageUpload(imageData: File) {
     const result = await uploadPromise;
     return result as any;
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    throw new Error('Failed to upload image');
+    console.error("Error uploading to Cloudinary:", error);
+    throw new Error("Failed to upload image");
   }
 }
 
@@ -86,27 +86,57 @@ export async function addProduct(
     const price = formData.get("price") as string;
     const categoryId = formData.get("categoryId") as string;
 
-    const validatedFields = addSchema.safeParse({
-      name,
-      description,
-      price,
-      categoryId,
-      image: {
-        name: imageFile.name,
-        size: imageFile.size,
-        type: imageFile.type,
-      },
-    });
-
-    if (!validatedFields.success) {
+    // Basic validation
+    if (!name || !description || !price || !categoryId) {
       return {
         success: false,
-        fieldErrors: validatedFields.error.flatten().fieldErrors,
+        error: "All fields are required",
       };
     }
 
+    // Validate price
+    if (isNaN(Number(price)) || Number(price) < 0) {
+      return {
+        success: false,
+        fieldErrors: {
+          price: ["Price must be a valid positive number"],
+        },
+      };
+    }
+
+    // Validate image
+    if (!imageFile || imageFile.size === 0) {
+      return {
+        success: false,
+        fieldErrors: {
+          image: ["Product image is required"],
+        },
+      };
+    }
+
+    // Validate image type and size
+    if (!imageFile.type.startsWith("image/")) {
+      return {
+        success: false,
+        fieldErrors: {
+          image: ["File must be an image"],
+        },
+      };
+    }
+
+    if (imageFile.size > 5 * 1024 * 1024) {
+      return {
+        success: false,
+        fieldErrors: {
+          image: ["Image must be less than 5MB"],
+        },
+      };
+    }
+
+    // Upload image
     const uploadResult = await handleImageUpload(imageFile);
 
+    // Create product
     const product = await db.product.create({
       data: {
         name,
@@ -114,6 +144,7 @@ export async function addProduct(
         price: parseInt(price),
         categoryId,
         imagePath: uploadResult.secure_url,
+        isAvailableForPurchase: true, // Set default availability
       },
     });
 
@@ -130,23 +161,55 @@ export async function addProduct(
   }
 }
 
+const productSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  price: z
+    .string()
+    .min(1, "Price is required")
+    .transform((val) => parseInt(val)),
+  categoryId: z.string().min(1, "Category is required"),
+});
+
 export async function updateProduct(
   id: string,
   prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    const name = formData.get("name") as string;
-    const description = formData.get("description") as string;
-    const price = formData.get("price") as string;
-    const categoryId = formData.get("categoryId") as string;
+    // First validate the product exists
+    const existingProduct = await db.product.findUnique({
+      where: { id },
+      select: { id: true, imagePath: true },
+    });
+
+    if (!existingProduct) {
+      return {
+        success: false,
+        error: "Product not found",
+      };
+    }
+
+    // Validate form data
+    const validatedFields = productSchema.safeParse({
+      name: formData.get("name"),
+      description: formData.get("description"),
+      price: formData.get("price"),
+      categoryId: formData.get("categoryId"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
     const imageData = formData.get("image") as File | null;
 
-    const updateData: any = {
-      name,
-      description,
-      price: parseInt(price),
-      categoryId,
+    const updateData = {
+      ...validatedFields.data,
+      updatedAt: new Date(),
     };
 
     if (imageData && imageData.size > 0) {
@@ -277,13 +340,13 @@ export async function updateProductSalePrice(
       },
     });
 
-    revalidatePath('/admin/products');
-    revalidatePath('/products');
-    revalidatePath('/');
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/");
 
     return { success: true, product };
   } catch (error) {
-    console.error('Error updating product sale price:', error);
-    return { success: false, error: 'Failed to update product sale price' };
+    console.error("Error updating product sale price:", error);
+    return { success: false, error: "Failed to update product sale price" };
   }
 }

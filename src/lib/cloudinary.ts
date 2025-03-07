@@ -1,9 +1,7 @@
 // Client-side Cloudinary utilities
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
-if (!CLOUD_NAME) {
-  console.warn('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is not set in environment variables');
-}
+
 
 export function getCloudinaryUrl(publicId: string): string {
   if (!publicId) {

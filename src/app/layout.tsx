@@ -7,7 +7,7 @@ import ClientLayout from "@/components/ClientLayout";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Bigstar Appliances",
+  title: "Bestbuy Store",
   description: "Your one-stop shop for home and kitchen appliances",
 };
 
